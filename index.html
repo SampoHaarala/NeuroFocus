@@ -17,22 +17,22 @@
             <div class="nav-section">
                 <div class="nav-label">Navigation</div>
                 <div class="nav-items">
-                    <div class="nav-item active">
+                    <a href="index.html" class="nav-item active">
                         <span class="nav-icon">◉</span>
                         <span>Home</span>
-                    </div>
-                    <div class="nav-item">
+                    </a>
+                    <a href="calendar.html" class="nav-item">
                         <span class="nav-icon">≈</span>
                         <span>Calendar</span>
-                    </div>
-                    <div class="nav-item">
+                    </a>
+                    <a href="trends.html" class="nav-item">
                         <span class="nav-icon">▤</span>
                         <span>Trends</span>
-                    </div>
-                    <div class="nav-item">
+                    </a>
+                    <a href="ai-coach.html" class="nav-item">
                         <span class="nav-icon">≋</span>
                         <span>AI Coach</span>
-                    </div>
+                    </a>
                 </div>
             </div>
 
@@ -81,9 +81,18 @@
                 <div class="focus-circle">
                     <div class="circle-ticks"></div>
                     <div class="circle-bg"></div>
-                    <div class="circle-progress">
-                        <div class="progress-dot"></div>
-                    </div>
+                    <svg class="circle-progress-svg" viewBox="0 0 320 320" width="320" height="320">
+                        <defs>
+                            <filter id="haloGlow">
+                                <feGaussianBlur stdDeviation="3" result="coloredBlur"/>
+                                <feMerge>
+                                    <feMergeNode in="coloredBlur"/>
+                                    <feMergeNode in="SourceGraphic"/>
+                                </feMerge>
+                            </filter>
+                        </defs>
+                        <circle class="circle-progress" cx="160" cy="160" r="155" id="progressRing" filter="url(#haloGlow)"/>
+                    </svg>
                     <div class="circle-inner">
                         <div class="focus-label">CURRENT FOCUS</div>
                         <div class="focus-number">

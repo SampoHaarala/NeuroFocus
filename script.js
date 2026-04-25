@@ -210,3 +210,29 @@ if(btnAiAnalysis && aiAnalysisPanel) {
         }
     });
 }
+
+// --- 5. 动态更新进度环 (Circle Progress Ring) ---
+const CIRCLE_CIRCUMFERENCE = 2 * Math.PI * 155; // r=155
+
+function updateProgressRing() {
+    const focusValueElement = document.querySelector('.focus-value');
+    const progressRing = document.getElementById('progressRing');
+    
+    if (!focusValueElement || !progressRing) return;
+    
+    const focusValue = parseInt(focusValueElement.textContent);
+    const percentage = Math.max(0, Math.min(100, focusValue)) / 100;
+    const offset = CIRCLE_CIRCUMFERENCE * (1 - percentage);
+    
+    progressRing.style.strokeDashoffset = offset;
+}
+
+// 初始更新
+updateProgressRing();
+
+// 监听焦点值变化（如果有动态更新）
+const focusValueElement = document.querySelector('.focus-value');
+if (focusValueElement) {
+    const observer = new MutationObserver(updateProgressRing);
+    observer.observe(focusValueElement, { childList: true, characterData: true, subtree: true });
+}
