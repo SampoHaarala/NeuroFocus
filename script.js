@@ -4,7 +4,11 @@ function updateTime() {
     const hours = String(now.getHours()).padStart(2, '0');
     const minutes = String(now.getMinutes()).padStart(2, '0');
     const seconds = String(now.getSeconds()).padStart(2, '0');
-    document.getElementById('current-time').textContent = `${hours}:${minutes}:${seconds}`;
+    
+    const timeElement = document.getElementById('current-time');
+    if (timeElement) {
+        timeElement.textContent = `${hours}:${minutes}:${seconds}`;
+    }
 }
 setInterval(updateTime, 1000);
 
@@ -14,6 +18,8 @@ function generateWaveform() {
     const wavePath = document.getElementById('wavePath');
     const waveStroke = document.getElementById('waveStroke');
     
+    if (!svg || !wavePath || !waveStroke) return;
+
     let points = [];
     let pathData = 'M 0 50';
     
@@ -34,14 +40,26 @@ let offset = 0;
 setInterval(() => {
     offset = (offset + 5) % 1000;
     const svg = document.getElementById('waveform');
-    svg.style.transform = `translateX(${offset}px)`;
+    if (svg) {
+        svg.style.transform = `translateX(${offset}px)`;
+    }
 }, 50);
 
-// Navigation interaction
+// Navigation interaction (Sidebar)
 document.querySelectorAll('.nav-item').forEach(item => {
     item.addEventListener('click', function() {
         document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
         this.classList.add('active');
+    });
+});
+
+// Bottom navigation tabs (Mobile)
+document.querySelectorAll('.nav-tab').forEach(tab => {
+    tab.addEventListener('click', function() {
+        document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+        this.classList.add('active');
+        const tabName = this.dataset.tab;
+        console.log('Navigating to: ' + tabName);
     });
 });
 

@@ -3,16 +3,15 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>NEUROFLOW - Session Tracking</title>
+    <title>NeuroFocus - Session Tracking</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
     <div class="container">
-        <!-- SIDEBAR -->
         <div class="sidebar">
             <div class="logo">
                 <div class="logo-dot"></div>
-                <div><span class="logo-text">NEURO</span><span class="logo-flow">FLOW</span></div>
+                <div><span class="logo-text">NEURO</span><span class="logo-flow">FOCUS</span></div>
             </div>
 
             <div class="nav-section">
@@ -20,23 +19,19 @@
                 <div class="nav-items">
                     <div class="nav-item active">
                         <span class="nav-icon">◉</span>
-                        <span>Session</span>
+                        <span>Home</span>
                     </div>
                     <div class="nav-item">
                         <span class="nav-icon">≈</span>
-                        <span>Live Feed</span>
+                        <span>Calendar</span>
                     </div>
                     <div class="nav-item">
                         <span class="nav-icon">▤</span>
-                        <span>Analytics</span>
+                        <span>Trends</span>
                     </div>
                     <div class="nav-item">
                         <span class="nav-icon">≋</span>
-                        <span>Wave Lab</span>
-                    </div>
-                    <div class="nav-item">
-                        <span class="nav-icon">⊙</span>
-                        <span>Profile</span>
+                        <span>AI Coach</span>
                     </div>
                 </div>
             </div>
@@ -58,9 +53,7 @@
             </div>
         </div>
 
-        <!-- MAIN CONTENT -->
         <div class="main-content">
-            <!-- HEADER -->
             <div class="header">
                 <div class="header-left">
                     <div class="header-session">SESSION 014 — DEEP WORK</div>
@@ -73,9 +66,7 @@
                 </div>
             </div>
 
-            <!-- MAIN AREA -->
             <div class="main-area">
-                <!-- FOCUS CIRCLE -->
                 <div class="focus-circle">
                     <div class="circle-bg"></div>
                     <div class="circle-progress"></div>
@@ -90,14 +81,12 @@
                 <div class="flow-state-time">SESSION · 00:12:43</div>
             </div>
 
-            <!-- BOTTOM SECTION -->
             <div class="bottom-section">
-                <!-- METRICS -->
                 <div class="metrics-grid">
                     <div class="metric">
                         <div class="metric-label">Session</div>
-                        <div class="metric-value">12:43</div>
-                        <div class="metric-unit">min</div>
+                        <div class="metric-value">1.2</div>
+                        <div class="metric-unit">h</div>
                         <div class="metric-change up">△ +3:12</div>
                     </div>
                     <div class="metric">
@@ -107,36 +96,30 @@
                         <div class="metric-change up">△ +6</div>
                     </div>
                     <div class="metric">
-                        <div class="metric-label">Coherence</div>
-                        <div class="metric-value">0.82</div>
-                        <div class="metric-unit">idx</div>
+                        <div class="metric-label">Relaxed Duration</div>
+                        <div class="metric-value">45</div>
+                        <div class="metric-unit">minutes</div>
                         <div class="metric-change up">△ +0.04</div>
                     </div>
                     <div class="metric">
-                        <div class="metric-label">Alpha Band</div>
-                        <div class="metric-value">10.4</div>
-                        <div class="metric-unit">Hz</div>
+                        <div class="metric-label">Focused Duration</div>
+                        <div class="metric-value">32</div>
+                        <div class="metric-unit">minutes</div>
                         <div class="metric-change">▼ -0.2</div>
                     </div>
-                    <div class="metric">
-                        <div class="metric-label">Theta Band</div>
-                        <div class="metric-value">6.1</div>
-                        <div class="metric-unit">Hz</div>
-                        <div class="metric-change">▼ -10.0</div>
-                    </div>
+
                 </div>
 
-                <!-- REAL-TIME STREAM -->
                 <div class="realtime-section">
                     <div class="realtime-header">
                         <div class="realtime-title">Real-Time Stream</div>
                     </div>
-                    <div class="stream-name">Neural Pulse · α-Band</div>
+                    <div class="stream-name">Relaxed & Focused Level</div>
                     
                     <div class="stream-info">
                         <div class="stream-stat">
                             <div class="stream-stat-label">Freq</div>
-                            <div class="stream-stat-value">9.9<span class="unit">l Hz</span></div>
+                            <div class="stream-stat-value">9.9<span class="unit"> Hz</span></div>
                         </div>
                         <div class="stream-stat">
                             <div class="stream-stat-label">Amp</div>
@@ -150,7 +133,6 @@
                         </div>
                     </div>
 
-                    <!-- WAVEFORM -->
                     <div class="waveform-container">
                         <svg id="waveform" viewBox="0 0 1000 100">
                             <defs>
@@ -173,10 +155,28 @@
                     </div>
                 </div>
 
-                <!-- BUTTONS -->
                 <div class="button-group">
                     <button class="btn primary">◉ CALIBRATE</button>
                     <button class="btn">END SESSION</button>
+                </div>
+            </div>
+
+            <div class="bottom-nav">
+                <div class="nav-tab active" data-tab="home">
+                    <span class="tab-icon">🏠</span>
+                    <span class="tab-label">Home</span>
+                </div>
+                <div class="nav-tab" data-tab="calendar">
+                    <span class="tab-icon">📅</span>
+                    <span class="tab-label">Calendar</span>
+                </div>
+                <div class="nav-tab" data-tab="trends">
+                    <span class="tab-icon">📊</span>
+                    <span class="tab-label">Trends</span>
+                </div>
+                <div class="nav-tab" data-tab="coach">
+                    <span class="tab-icon">🤖</span>
+                    <span class="tab-label">AI Coach</span>
                 </div>
             </div>
         </div>
