@@ -61,7 +61,11 @@ def try_json(payload: bytes) -> object | None:
 
 
 def try_csv_rows(payload: bytes) -> list[list[str]] | None:
-    text = payload.decode("utf-8", errors="strict").strip()
+    try:
+        text = payload.decode("utf-8", errors="strict").strip()
+    except UnicodeDecodeError:
+        return None
+
     if not text or "," not in text:
         return None
     try:
