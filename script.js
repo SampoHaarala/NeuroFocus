@@ -1,4 +1,4 @@
-// Update time
+// 1. 时间更新
 function updateTime() {
     const now = new Date();
     const hours = String(now.getHours()).padStart(2, '0');
@@ -12,7 +12,7 @@ function updateTime() {
 }
 setInterval(updateTime, 1000);
 
-// Generate waveform
+// 2. 生成波形
 function generateWaveform() {
     const svg = document.getElementById('waveform');
     const wavePath = document.getElementById('wavePath');
@@ -35,7 +35,7 @@ function generateWaveform() {
 }
 generateWaveform();
 
-// Animate waveform
+// 3. 动画波形移动
 let offset = 0;
 setInterval(() => {
     offset = (offset + 5) % 1000;
@@ -45,7 +45,7 @@ setInterval(() => {
     }
 }, 50);
 
-// Navigation interaction (Sidebar)
+// 4. 左侧导航栏交互
 document.querySelectorAll('.nav-item').forEach(item => {
     item.addEventListener('click', function() {
         document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
@@ -53,8 +53,8 @@ document.querySelectorAll('.nav-item').forEach(item => {
     });
 });
 
-// Bottom navigation tabs (Mobile)
-document.querySelectorAll('.nav-tab').forEach(tab => {
+// 5. 移动端底部导航栏交互
+document.querySelectorAll('.nav-nav').forEach(tab => {
     tab.addEventListener('click', function() {
         document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
         this.classList.add('active');
@@ -63,9 +63,46 @@ document.querySelectorAll('.nav-tab').forEach(tab => {
     });
 });
 
-// Button interactions
-document.querySelectorAll('.btn').forEach(btn => {
+// 6. 底部固定按钮交互
+document.querySelectorAll('.btn:not(.btn-ai-analysis):not(.band-btn)').forEach(btn => {
     btn.addEventListener('click', function() {
         console.log(this.textContent + ' clicked');
     });
 });
+
+// 7. 频段切换逻辑 (α, β, θ, δ)
+document.querySelectorAll('.band-btn').forEach(btn => {
+    btn.addEventListener('click', function() {
+        // 移除所有按钮的 active 状态
+        document.querySelectorAll('.band-btn').forEach(b => b.classList.remove('active'));
+        // 激活当前点击的按钮
+        this.classList.add('active');
+
+        // 提取数据并更新界面
+        const bandName = this.dataset.band;
+        const freqValue = this.dataset.freq;
+        const ampValue = this.dataset.amp;
+
+        document.getElementById('current-stream-name').textContent = `${bandName}`;
+        document.getElementById('stat-freq').innerHTML = `${freqValue}<span class="unit"> Hz</span>`;
+        document.getElementById('stat-amp').innerHTML = `${ampValue}<span class="unit">µV</span>`;
+    });
+});
+
+// 8. AI Analysis 面板切换逻辑
+const btnAiAnalysis = document.getElementById('btn-ai-analysis');
+const aiAnalysisPanel = document.getElementById('ai-analysis-panel');
+
+if(btnAiAnalysis && aiAnalysisPanel) {
+    btnAiAnalysis.addEventListener('click', function() {
+        if (aiAnalysisPanel.style.display === 'none' || aiAnalysisPanel.style.display === '') {
+            // 展开
+            aiAnalysisPanel.style.display = 'block';
+            // 平滑滚动到底部
+            aiAnalysisPanel.scrollIntoView({ behavior: 'smooth', block: 'end' });
+        } else {
+            // 收起
+            aiAnalysisPanel.style.display = 'none';
+        }
+    });
+}

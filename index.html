@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>NeuroFocus - Session Tracking</title>
+    <title>NEUROFOCUS - Session Tracking</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -85,8 +85,8 @@
                 <div class="metrics-grid">
                     <div class="metric">
                         <div class="metric-label">Session</div>
-                        <div class="metric-value">1.2</div>
-                        <div class="metric-unit">h</div>
+                        <div class="metric-value">1.2h</div>
+                        <div class="metric-unit">min</div>
                         <div class="metric-change up">△ +3:12</div>
                     </div>
                     <div class="metric">
@@ -96,14 +96,14 @@
                         <div class="metric-change up">△ +6</div>
                     </div>
                     <div class="metric">
-                        <div class="metric-label">Relaxed Duration</div>
+                        <div class="metric-label">Focused Duration</div>
                         <div class="metric-value">45</div>
                         <div class="metric-unit">minutes</div>
                         <div class="metric-change up">△ +0.04</div>
                     </div>
                     <div class="metric">
-                        <div class="metric-label">Focused Duration</div>
-                        <div class="metric-value">32</div>
+                        <div class="metric-label">Relaxed Duration</div>
+                        <div class="metric-value">10.4</div>
                         <div class="metric-unit">minutes</div>
                         <div class="metric-change">▼ -0.2</div>
                     </div>
@@ -111,19 +111,31 @@
                 </div>
 
                 <div class="realtime-section">
-                    <div class="realtime-header">
+                    <div class="realtime-header" style="margin-bottom: 15px;">
                         <div class="realtime-title">Real-Time Stream</div>
                     </div>
-                    <div class="stream-name">Relaxed & Focused Level</div>
+
+                    <div class="stream-controls" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 10px;">
+                        <div class="band-switcher" style="margin-bottom: 0;">
+                            <button class="band-btn active" data-band="Relaxed & Focused Level" data-freq="9.9" data-amp="34">Relaxed & Focused Level</button>
+                            <button class="band-btn" data-band="Attention" data-freq="18.5" data-amp="15">Attention</button>
+                            <button class="band-btn" data-band="Engagement" data-freq="6.1" data-amp="42">Engagement</button>
+                        </div>
+
+                        <button class="btn-ai-analysis" id="btn-ai-analysis" style="flex-shrink: 0;">✨ AI Analysis</button>
+                        
+                    </div>
+
+                    <div class="stream-name" id="current-stream-name">Relaxed & Focused Level</div>
                     
                     <div class="stream-info">
                         <div class="stream-stat">
                             <div class="stream-stat-label">Freq</div>
-                            <div class="stream-stat-value">9.9<span class="unit"> Hz</span></div>
+                            <div class="stream-stat-value" id="stat-freq">9.9<span class="unit"> Hz</span></div>
                         </div>
                         <div class="stream-stat">
                             <div class="stream-stat-label">Amp</div>
-                            <div class="stream-stat-value">34<span class="unit">µV</span></div>
+                            <div class="stream-stat-value" id="stat-amp">34<span class="unit">µV</span></div>
                         </div>
                         <div>
                             <div class="live-badge">
@@ -152,6 +164,16 @@
                         <span>-30s</span>
                         <span>-15s</span>
                         <span>NOW</span>
+                    </div>
+                </div>
+
+                <div class="ai-analysis-panel" id="ai-analysis-panel" style="display: none;">
+                    <div class="ai-analysis-header">
+                        🤖 AI Coach Insights
+                    </div>
+                    <div class="ai-analysis-content">
+                        <p><strong>Flow State Analysis:</strong> Brain wave coherence is stable. Your Alpha waves have been dominant for the past 12 minutes, indicating that you are in a deeply focused and relaxed flow state.</p>
+                        <p><strong>Recommendation:</strong> Based on the subtle fluctuations in your Theta wave activity, it is predicted that you may experience fatigue in 15 minutes. A 5-minute micro-break is recommended at that time.</p>
                     </div>
                 </div>
 

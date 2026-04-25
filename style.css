@@ -341,13 +341,6 @@ body {
     margin-bottom: 40px;
 }
 
-.realtime-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 20px;
-}
-
 .realtime-title {
     font-size: 12px;
     color: #666;
@@ -414,6 +407,87 @@ body {
 @keyframes pulse {
     0%, 100% { opacity: 1; }
     50% { opacity: 0.5; }
+}
+
+/* AI Analysis & Band Switcher Buttons */
+.btn-ai-analysis {
+    background: rgba(168, 85, 247, 0.1);
+    color: #a855f7;
+    border: 1px solid rgba(168, 85, 247, 0.5);
+    padding: 6px 12px;
+    border-radius: 15px;
+    font-size: 11px;
+    cursor: pointer;
+    transition: all 0.3s;
+    font-weight: 600;
+}
+
+.btn-ai-analysis:hover {
+    background: rgba(168, 85, 247, 0.2);
+    box-shadow: 0 0 10px rgba(168, 85, 247, 0.3);
+}
+
+.band-switcher {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 15px;
+    flex-wrap: wrap;
+}
+
+.band-btn {
+    background: transparent;
+    color: #666;
+    border: 1px solid #333;
+    padding: 6px 14px;
+    border-radius: 20px;
+    font-size: 11px;
+    cursor: pointer;
+    transition: all 0.3s;
+    font-weight: 600;
+}
+
+.band-btn:hover {
+    color: #a855f7;
+    border-color: #a855f7;
+}
+
+.band-btn.active {
+    background: rgba(168, 85, 247, 0.15);
+    color: #a855f7;
+    border-color: #a855f7;
+}
+
+/* AI Analysis Panel */
+.ai-analysis-panel {
+    margin-top: 30px;
+    padding: 20px;
+    background: linear-gradient(to right, rgba(168, 85, 247, 0.05), rgba(10, 10, 20, 0));
+    border-left: 3px solid #a855f7;
+    border-radius: 4px;
+    animation: slideDown 0.4s ease-out;
+}
+
+.ai-analysis-header {
+    font-size: 14px;
+    font-weight: 600;
+    color: #a855f7;
+    margin-bottom: 12px;
+}
+
+.ai-analysis-content p {
+    font-size: 13px;
+    color: #ccc;
+    line-height: 1.6;
+    margin-bottom: 10px;
+}
+
+.ai-analysis-content p:last-child {
+    margin-bottom: 0;
+}
+
+@keyframes slideDown {
+    from { opacity: 0; transform: translateY(-10px); }
+    to { opacity: 1; transform: translateY(0); }
 }
 
 /* WAVEFORM */
@@ -541,54 +615,22 @@ body {
 
 /* Tablet & Small Desktop (768px to 1024px) */
 @media (max-width: 1024px) {
-    .sidebar {
-        width: 200px;
-        padding: 30px 20px;
-    }
-    .logo {
-        font-size: 16px;
-        margin-bottom: 40px;
-    }
-    .header {
-        padding: 20px 30px;
-    }
-    .header-title {
-        font-size: 24px;
-    }
-    .main-area {
-        padding: 30px 20px;
-    }
-    .focus-circle {
-        width: 240px;
-        height: 240px;
-        margin-bottom: 40px;
-    }
-    .focus-value {
-        font-size: 48px;
-    }
-    .focus-percent {
-        font-size: 24px;
-    }
-    .bottom-section {
-        padding: 30px 20px;
-    }
-    .metrics-grid {
-        grid-template-columns: repeat(3, 1fr);
-        gap: 20px;
-        margin-bottom: 40px;
-    }
-    .metric-value {
-        font-size: 24px;
-    }
+    .sidebar { width: 200px; padding: 30px 20px; }
+    .logo { font-size: 16px; margin-bottom: 40px; }
+    .header { padding: 20px 30px; }
+    .header-title { font-size: 24px; }
+    .main-area { padding: 30px 20px; }
+    .focus-circle { width: 240px; height: 240px; margin-bottom: 40px; }
+    .focus-value { font-size: 48px; }
+    .focus-percent { font-size: 24px; }
+    .bottom-section { padding: 30px 20px; }
+    .metrics-grid { grid-template-columns: repeat(3, 1fr); gap: 20px; margin-bottom: 40px; }
+    .metric-value { font-size: 24px; }
 }
 
 /* Mobile Large (481px to 768px) */
 @media (max-width: 768px) {
-    .container {
-        flex-direction: column;
-        height: auto;
-        min-height: 100vh;
-    }
+    .container { flex-direction: column; height: auto; min-height: 100vh; }
 
     /* 移动端顶部保留 Logo，隐藏 Navigation 和 WebSocket 信息 */
     .sidebar {
@@ -597,221 +639,64 @@ body {
         border-right: none;
         border-bottom: 1px solid #1a1a2e;
         display: flex;
-        justify-content: center; /* 居中显示 Logo */
+        justify-content: center;
         align-items: center;
     }
-    .logo {
-        font-size: 18px;
-        margin-bottom: 0;
-    }
-    /* 核心修改：在移动端隐藏不需要的顶部导航元素 */
-    .nav-section, 
-    .connection-status {
-        display: none;
-    }
+    .logo { font-size: 18px; margin-bottom: 0; }
+    .nav-section, .connection-status { display: none; }
 
-    .main-content {
-        overflow-y: visible;
-        flex-direction: column;
-    }
+    .main-content { overflow-y: visible; flex-direction: column; }
+    .header { padding: 15px; flex-direction: column; align-items: flex-start; gap: 10px; border-bottom: 1px solid #1a1a2e; }
+    .header-left { width: 100%; }
+    .header-session { font-size: 9px; }
+    .header-title { font-size: 20px; }
+    .header-right { display: none; }
 
-    .header {
-        padding: 15px;
-        flex-direction: column;
-        align-items: flex-start;
-        gap: 10px;
-        border-bottom: 1px solid #1a1a2e;
-    }
+    .main-area { padding: 20px 15px 30px 15px; flex: auto; justify-content: flex-start; }
+    .focus-circle { width: 200px; height: 200px; margin-bottom: 30px; }
+    .focus-value { font-size: 36px; }
+    .focus-percent { font-size: 18px; }
+    .focus-label { font-size: 10px; }
+    .flow-state-label { font-size: 9px; margin-top: 15px; }
+    .flow-state-time { font-size: 11px; }
 
-    .header-left {
-        width: 100%;
-    }
+    .bottom-section { padding: 20px 15px 80px 15px; /* 留出底部导航栏空间 */ border-top: 1px solid #1a1a2e; background: transparent; }
+    .metrics-grid { grid-template-columns: repeat(2, 1fr); gap: 15px; margin-bottom: 30px; }
+    .metric { background: rgba(168, 85, 247, 0.05); padding: 15px; border-radius: 8px; border: 1px solid #1a1a2e; }
+    .metric-label { font-size: 8px; margin-bottom: 6px; }
+    .metric-value { font-size: 18px; }
+    .metric-unit { font-size: 10px; }
+    .metric-change { font-size: 9px; }
 
-    .header-session {
-        font-size: 9px;
-    }
+    .realtime-section { margin-bottom: 20px; }
+    .realtime-title { font-size: 10px; }
+    .stream-name { font-size: 16px; margin-bottom: 15px; }
+    .stream-info { gap: 20px; margin-bottom: 20px; }
+    .stream-stat-label { font-size: 8px; }
+    .stream-stat-value { font-size: 14px; }
+    .stream-stat-value .unit { font-size: 10px; }
+    .live-badge { font-size: 9px; padding: 4px 10px; }
+    .live-dot { width: 5px; height: 5px; }
 
-    .header-title {
-        font-size: 20px;
-    }
-
-    .header-right {
-        display: none; /* 根据原设定，移动端精简头部右侧 */
-    }
-
-    .main-area {
-        padding: 20px 15px 70px 15px; /* 留出底部导航栏空间 */
-        flex: auto;
-        justify-content: flex-start;
-    }
-
-    .focus-circle {
-        width: 200px;
-        height: 200px;
-        margin-bottom: 30px;
-    }
-
-    .focus-value {
-        font-size: 36px;
-    }
-
-    .focus-percent {
-        font-size: 18px;
-    }
-
-    .focus-label {
-        font-size: 10px;
-    }
-
-    .flow-state-label {
-        font-size: 9px;
-        margin-top: 15px;
-    }
-
-    .flow-state-time {
-        font-size: 11px;
-    }
-
-    .bottom-section {
-        padding: 20px 15px;
-        border-top: 1px solid #1a1a2e;
-        background: transparent;
-    }
-
-    .metrics-grid {
-        grid-template-columns: repeat(2, 1fr);
-        gap: 15px;
-        margin-bottom: 30px;
-    }
-
-    .metric {
-        background: rgba(168, 85, 247, 0.05);
-        padding: 15px;
-        border-radius: 8px;
-        border: 1px solid #1a1a2e;
-    }
-
-    .metric-label {
-        font-size: 8px;
-        margin-bottom: 6px;
-    }
-
-    .metric-value {
-        font-size: 18px;
-    }
-
-    .metric-unit {
-        font-size: 10px;
-    }
-
-    .metric-change {
-        font-size: 9px;
-    }
-
-    .realtime-section {
-        margin-bottom: 20px;
-    }
-
-    .realtime-title {
-        font-size: 10px;
-    }
-
-    .stream-name {
-        font-size: 16px;
-        margin-bottom: 15px;
-    }
-
-    .stream-info {
-        gap: 20px;
-        margin-bottom: 20px;
-    }
-
-    .stream-stat-label {
-        font-size: 8px;
-    }
-
-    .stream-stat-value {
-        font-size: 14px;
-    }
-
-    .stream-stat-value .unit {
-        font-size: 10px;
-    }
-
-    .live-badge {
-        font-size: 9px;
-        padding: 4px 10px;
-    }
-
-    .live-dot {
-        width: 5px;
-        height: 5px;
-    }
-
-    .waveform-container {
-        margin: 15px 0;
-        height: 80px;
-        padding: 10px;
-    }
-
-    .time-markers {
-        font-size: 8px;
-        margin-top: 5px;
-    }
-
-    .button-group {
-        display: none; /* 移动端隐藏按钮群 */
-    }
-
-    /* 移动端显示底部导航 */
-    .bottom-nav {
-        display: flex;
-    }
+    .waveform-container { margin: 15px 0; height: 80px; padding: 10px; }
+    .time-markers { font-size: 8px; margin-top: 5px; }
+    .button-group { display: none; }
+    .bottom-nav { display: flex; }
 }
 
 /* Mobile Small (320px to 480px) */
 @media (max-width: 480px) {
-    .logo {
-        font-size: 14px;
-    }
-    .header-title {
-        font-size: 16px;
-    }
-    .focus-circle {
-        width: 160px;
-        height: 160px;
-        margin-bottom: 20px;
-    }
-    .focus-value {
-        font-size: 28px;
-    }
-    .focus-percent {
-        font-size: 14px;
-    }
-    .metrics-grid {
-        grid-template-columns: 1fr;
-    }
-    .metric-label {
-        font-size: 7px;
-    }
-    .metric-value {
-        font-size: 16px;
-    }
-    .stream-info {
-        flex-direction: column;
-        align-items: flex-start;
-        gap: 10px;
-    }
-    .waveform-container {
-        height: 60px;
-    }
-    .nav-tab {
-        padding: 6px 8px;
-    }
-    .tab-icon {
-        font-size: 16px;
-    }
-    .tab-label {
-        font-size: 9px;
-    }
+    .logo { font-size: 14px; }
+    .header-title { font-size: 16px; }
+    .focus-circle { width: 160px; height: 160px; margin-bottom: 20px; }
+    .focus-value { font-size: 28px; }
+    .focus-percent { font-size: 14px; }
+    .metrics-grid { grid-template-columns: 1fr; }
+    .metric-label { font-size: 7px; }
+    .metric-value { font-size: 16px; }
+    .stream-info { flex-direction: column; align-items: flex-start; gap: 10px; }
+    .waveform-container { height: 60px; }
+    .nav-tab { padding: 6px 8px; }
+    .tab-icon { font-size: 16px; }
+    .tab-label { font-size: 9px; }
 }
