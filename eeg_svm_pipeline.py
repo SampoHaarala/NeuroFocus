@@ -10,7 +10,10 @@ from sklearn.preprocessing import RobustScaler, StandardScaler
 from sklearn.svm import SVC
 
 
-BASE_FEATURES = ["delta", "theta", "alpha", "beta"]
+# Gamma and delta are ignored for the first focus model.
+# OpenBCI order is delta, theta, alpha, beta, gamma, but focus detection here uses
+# theta/alpha/beta plus ratios.
+BASE_FEATURES = ["theta", "alpha", "beta"]
 RATIO_FEATURES = ["beta_alpha_ratio", "beta_theta_ratio", "theta_alpha_ratio"]
 MODEL_FEATURES = BASE_FEATURES + RATIO_FEATURES
 EPSILON = 1e-9
