@@ -60,25 +60,45 @@
                     <div class="header-title">Good evening, <span class="name">Dr. Chen</span></div>
                 </div>
                 <div class="header-right">
-                    <div class="time-label">LOCAL TIME</div>
-                    <div class="time" id="current-time">17:04:28</div>
-                    <div class="signal">📶 ▁▂▃▄</div>
+                    <div class="status-block">
+                        <div class="header-label">LOCAL TIME</div>
+                        <div class="time" id="current-time">17:04:28</div>
+                    </div>
+                    
+                    <div class="status-block">
+                        <div class="header-label">SIGNAL</div>
+                        <div class="signal-bars">
+                            <div class="bar"></div>
+                            <div class="bar"></div>
+                            <div class="bar"></div>
+                            <div class="bar"></div>
+                        </div>
+                    </div>
                 </div>
             </div>
 
             <div class="main-area">
                 <div class="focus-circle">
+                    <div class="circle-ticks"></div>
                     <div class="circle-bg"></div>
-                    <div class="circle-progress"></div>
+                    <div class="circle-progress">
+                        <div class="progress-dot"></div>
+                    </div>
                     <div class="circle-inner">
                         <div class="focus-label">CURRENT FOCUS</div>
-                        <div>
-                            <span class="focus-value">86</span><span class="focus-percent">%</span>
+                        <div class="focus-number">
+                            <span class="focus-value">96</span><span class="focus-percent">%</span>
                         </div>
+                        <div class="circle-divider"></div>
+                        <div class="flow-state-label">FLOW STATE</div>
+                        <div class="flow-state-time">SESSION · 00:12:43</div>
                     </div>
                 </div>
-                <div class="flow-state-label">FLOW STATE</div>
-                <div class="flow-state-time">SESSION · 00:12:43</div>
+
+                <div class="button-group">
+                    <button class="btn primary">◉ CALIBRATE</button>
+                    <button class="btn">END SESSION</button>
+                </div>
             </div>
 
             <div class="bottom-section">
@@ -107,7 +127,6 @@
                         <div class="metric-unit">minutes</div>
                         <div class="metric-change">▼ -0.2</div>
                     </div>
-
                 </div>
 
                 <div class="realtime-section">
@@ -121,9 +140,7 @@
                             <button class="band-btn" data-band="Attention" data-freq="18.5" data-amp="15">Attention</button>
                             <button class="band-btn" data-band="Engagement" data-freq="6.1" data-amp="42">Engagement</button>
                         </div>
-
                         <button class="btn-ai-analysis" id="btn-ai-analysis" style="flex-shrink: 0;">✨ AI Analysis</button>
-                        
                     </div>
 
                     <div class="stream-name" id="current-stream-name">Relaxed & Focused Level</div>
@@ -155,14 +172,15 @@
                             </defs>
                             <path id="wavePath" fill="url(#waveGradient)" stroke="none" d=""/>
                             <polyline id="waveStroke" fill="none" stroke="#a855f7" stroke-width="2" points=""/>
+                            <circle id="waveDot" r="3" fill="#ffffff" cx="0" cy="0" filter="drop-shadow(0 0 4px rgba(255,255,255,0.8))"/>
                         </svg>
                     </div>
 
-                    <div class="time-markers">
-                        <span>-60s</span>
-                        <span>-45s</span>
+                    <div class="time-markers" id="time-axis-labels">
                         <span>-30s</span>
-                        <span>-15s</span>
+                        <span>-20s</span>
+                        <span>-10s</span>
+                        <span>-5s</span>
                         <span>NOW</span>
                     </div>
                 </div>
@@ -176,12 +194,8 @@
                         <p><strong>Recommendation:</strong> Based on the subtle fluctuations in your Theta wave activity, it is predicted that you may experience fatigue in 15 minutes. A 5-minute micro-break is recommended at that time.</p>
                     </div>
                 </div>
-
-                <div class="button-group">
-                    <button class="btn primary">◉ CALIBRATE</button>
-                    <button class="btn">END SESSION</button>
+                
                 </div>
-            </div>
 
             <div class="bottom-nav">
                 <div class="nav-tab active" data-tab="home">
