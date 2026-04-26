@@ -1,35 +1,21 @@
 #!/usr/bin/env python3
 """Local frontend/backend bridge for EEG focus classification.
 
-This service loads a saved SVM model and exposes a small HTTP API for the
-frontend. The frontend sends OpenBCI band powers, the backend extracts the same
-features used during training, runs the saved model, and returns the focus
-classification plus confidence.
+The frontend sends OpenBCI band powers. The backend extracts the same internal
+features used during SVM training, optionally applies a per-user calibration
+baseline, runs the saved model, and returns only binary classification and
+confidence.
 
 Run:
     python focus_backend_server.py --model focus_svm.joblib --host 127.0.0.1 --port 8000
 
-Example request:
-    POST http://127.0.0.1:8000/classify
-    Content-Type: application/json
-
-    {
-      "theta": 0.671393,
-      "alpha": 0.166967,
-      "beta": 0.104697
-    }
-
-Also accepted:
-    {"band_powers": {"delta": 0.03, "theta": 0.67, "alpha": 0.16, "beta": 0.10, "gamma": 0.01}}
-    {"band_powers": [delta, theta, alpha, beta, gamma]}
-    {"band_powers": [theta, alpha, beta]}
-
-Response:
-    {
-      "classification": "focused",
-      "confidence": 0.83,
-      "features": {...}
-    }
+Main endpoints:
+    GET  /health
+    POST /classify
+    POST /calibration/start
+    POST /calibration/sample
+    POST /calibration/finish
+    GET  /calibration/status
 """
 
 from __future__ import annotations
@@ -38,6 +24,7 @@ import argparse
 import json
 import logging
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from pathlib import Path
 from typing import Any
 
 import joblib
@@ -50,24 +37,80 @@ REQUIRED_BANDS = ["theta", "alpha", "beta"]
 DEFAULT_LABEL_MAP = {1: "focused", 0: "relaxed"}
 
 
+class CalibrationStore:
+    """Stores a simple per-user resting baseline for incoming band powers."""
+
+    def __init__(self, path: str):
+        self.path = Path(path)
+        self.active_samples: list[dict[str, float]] = []
+        self.baseline: dict[str, float] | None = None
+        self.load()
+
+    def load(self) -> None:
+        if not self.path.exists():
+            return
+        try:
+            data = json.loads(self.path.read_text(encoding="utf-8"))
+            baseline = data.get("baseline")
+            if isinstance(baseline, dict):
+                self.baseline = {band: float(baseline[band]) for band in REQUIRED_BANDS if band in baseline}
+        except Exception:
+            logging.exception("Could not load calibration file")
+
+    def save(self) -> None:
+        self.path.parent.mkdir(parents=True, exist_ok=True)
+        self.path.write_text(json.dumps({"baseline": self.baseline}, indent=2), encoding="utf-8")
+
+    def start(self) -> None:
+        self.active_samples = []
+
+    def add_sample(self, bands: dict[str, float]) -> int:
+        self.active_samples.append({band: float(bands[band]) for band in REQUIRED_BANDS})
+        return len(self.active_samples)
+
+    def finish(self) -> dict[str, Any]:
+        if not self.active_samples:
+            raise ValueError("No calibration samples collected")
+        self.baseline = {
+            band: sum(sample[band] for sample in self.active_samples) / len(self.active_samples)
+            for band in REQUIRED_BANDS
+        }
+        count = len(self.active_samples)
+        self.active_samples = []
+        self.save()
+        return {"calibrated": True, "samples": count}
+
+    def apply(self, bands: dict[str, float]) -> dict[str, float]:
+        if not self.baseline:
+            return bands
+        # Express current band powers relative to this user's relaxed baseline.
+        # This keeps the model input shape the same while reducing user-to-user offset.
+        adjusted = {}
+        for band in REQUIRED_BANDS:
+            baseline_value = self.baseline.get(band, 0.0)
+            adjusted[band] = float(bands[band]) - float(baseline_value)
+        return adjusted
+
+    def status(self) -> dict[str, Any]:
+        return {
+            "calibrated": self.baseline is not None,
+            "collecting_samples": len(self.active_samples),
+        }
+
+
 class FocusClassifier:
     """Thin wrapper around the saved sklearn model."""
 
-    def __init__(self, model_path: str, threshold: float = 0.5):
+    def __init__(self, model_path: str, threshold: float = 0.5, calibration_path: str = "calibration.json"):
         self.model_path = model_path
         self.model = joblib.load(model_path)
         self.threshold = threshold
+        self.calibration = CalibrationStore(calibration_path)
 
     def classify(self, payload: dict[str, Any]) -> dict[str, Any]:
         bands = extract_band_payload(payload)
-        row = pd.DataFrame([bands])
-        row = add_ratio_features(row)
-        X = prepare_features(
-            row[MODEL_FEATURES],
-            z_thresh=3.5,
-            smooth_window=1,
-            fill_method="median",
-        )
+        calibrated_bands = self.calibration.apply(bands)
+        X = build_model_input(calibrated_bands)
 
         if hasattr(self.model, "predict_proba"):
             proba = self.model.predict_proba(X)[0]
@@ -81,17 +124,22 @@ class FocusClassifier:
         else:
             predicted_class = int(self.model.predict(X)[0])
             confidence = None
-            focused_probability = None
-
-        classification = DEFAULT_LABEL_MAP.get(predicted_class, str(predicted_class))
 
         return {
-            "classification": classification,
+            "classification": DEFAULT_LABEL_MAP.get(predicted_class, str(predicted_class)),
             "confidence": confidence,
-            "focused_probability": focused_probability,
-            "threshold": self.threshold,
-            "features": {feature: float(X.iloc[0][feature]) for feature in MODEL_FEATURES},
         }
+
+
+def build_model_input(bands: dict[str, float]) -> pd.DataFrame:
+    row = pd.DataFrame([bands])
+    row = add_ratio_features(row)
+    return prepare_features(
+        row[MODEL_FEATURES],
+        z_thresh=3.5,
+        smooth_window=1,
+        fill_method="median",
+    )
 
 
 def extract_band_payload(payload: dict[str, Any]) -> dict[str, float]:
@@ -122,7 +170,7 @@ def extract_band_payload(payload: dict[str, Any]) -> dict[str, float]:
 
 def make_handler(classifier: FocusClassifier):
     class FocusRequestHandler(BaseHTTPRequestHandler):
-        server_version = "NeuroFocusBackend/1.0"
+        server_version = "NeuroFocusBackend/1.1"
 
         def _send_json(self, status_code: int, body: dict[str, Any]) -> None:
             response = json.dumps(body).encode("utf-8")
@@ -135,43 +183,49 @@ def make_handler(classifier: FocusClassifier):
             self.end_headers()
             self.wfile.write(response)
 
+        def _read_json_body(self) -> dict[str, Any]:
+            content_length = int(self.headers.get("Content-Length", "0"))
+            raw_body = self.rfile.read(content_length)
+            return json.loads(raw_body.decode("utf-8")) if raw_body else {}
+
         def do_OPTIONS(self) -> None:
             self._send_json(200, {"ok": True})
 
         def do_GET(self) -> None:
             if self.path == "/health":
-                self._send_json(
-                    200,
-                    {
-                        "status": "ok",
-                        "model_path": classifier.model_path,
-                        "required_bands": REQUIRED_BANDS,
-                        "features": MODEL_FEATURES,
-                    },
-                )
+                self._send_json(200, {"status": "ok"})
                 return
-
-            self._send_json(
-                404,
-                {
-                    "error": "Not found",
-                    "available_endpoints": ["GET /health", "POST /classify"],
-                },
-            )
+            if self.path == "/calibration/status":
+                self._send_json(200, classifier.calibration.status())
+                return
+            self._send_json(404, {"error": "Not found"})
 
         def do_POST(self) -> None:
-            if self.path != "/classify":
-                self._send_json(404, {"error": "Not found", "available_endpoints": ["POST /classify"]})
-                return
-
             try:
-                content_length = int(self.headers.get("Content-Length", "0"))
-                raw_body = self.rfile.read(content_length)
-                payload = json.loads(raw_body.decode("utf-8")) if raw_body else {}
-                result = classifier.classify(payload)
-                self._send_json(200, result)
+                if self.path == "/classify":
+                    result = classifier.classify(self._read_json_body())
+                    self._send_json(200, result)
+                    return
+
+                if self.path == "/calibration/start":
+                    classifier.calibration.start()
+                    self._send_json(200, {"calibrating": True, "samples": 0})
+                    return
+
+                if self.path == "/calibration/sample":
+                    bands = extract_band_payload(self._read_json_body())
+                    count = classifier.calibration.add_sample(bands)
+                    self._send_json(200, {"calibrating": True, "samples": count})
+                    return
+
+                if self.path == "/calibration/finish":
+                    result = classifier.calibration.finish()
+                    self._send_json(200, result)
+                    return
+
+                self._send_json(404, {"error": "Not found"})
             except Exception as exc:
-                logging.exception("Failed to classify request")
+                logging.exception("Request failed")
                 self._send_json(400, {"error": str(exc)})
 
         def log_message(self, format: str, *args: Any) -> None:
@@ -186,6 +240,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--host", default="127.0.0.1", help="Host to bind. Default: 127.0.0.1")
     parser.add_argument("--port", type=int, default=8000, help="HTTP port. Default: 8000")
     parser.add_argument("--threshold", type=float, default=0.5, help="Focused probability threshold. Default: 0.5")
+    parser.add_argument("--calibration-file", default="calibration.json", help="Where to store user calibration baseline")
     parser.add_argument("--debug", action="store_true", help="Enable debug logging")
     return parser
 
@@ -194,12 +249,15 @@ def main() -> None:
     args = build_parser().parse_args()
     logging.basicConfig(level=logging.DEBUG if args.debug else logging.INFO)
 
-    classifier = FocusClassifier(args.model, threshold=args.threshold)
+    classifier = FocusClassifier(
+        args.model,
+        threshold=args.threshold,
+        calibration_path=args.calibration_file,
+    )
     handler = make_handler(classifier)
     server = ThreadingHTTPServer((args.host, args.port), handler)
 
     logging.info("NeuroFocus backend listening on http://%s:%s", args.host, args.port)
-    logging.info("Health check: http://%s:%s/health", args.host, args.port)
     logging.info("Classify endpoint: POST http://%s:%s/classify", args.host, args.port)
 
     try:
