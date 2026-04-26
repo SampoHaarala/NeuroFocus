@@ -25,6 +25,7 @@ FOCUSED_LABEL = "focused"
 RELAXED_LABEL = "relaxed"
 LABEL_ORDER = [0, 1]
 LABEL_NAMES = [RELAXED_LABEL, FOCUSED_LABEL]
+REQUIRED_FILE_COLUMNS = {"label", "theta", "alpha", "beta"}
 
 # New data should use only the canonical labels above.
 # Older task-specific labels are accepted only so existing CSVs remain usable.
@@ -60,6 +61,30 @@ def add_ratio_features(df):
     return X
 
 
+def load_feature_file(path):
+    """Load a CSV-formatted feature file, even if it has no .csv extension."""
+    try:
+        df = pd.read_csv(path)
+    except UnicodeDecodeError:
+        df = pd.read_csv(path, encoding="latin-1")
+    df.columns = [str(col).strip() for col in df.columns]
+    return df
+
+
+def looks_like_feature_file(path, label_column="label"):
+    """Return True when a file has the required CSV header for model training."""
+    path = Path(path)
+    if not path.is_file() or path.name.startswith("."):
+        return False
+    try:
+        header = pd.read_csv(path, nrows=0).columns
+    except Exception:
+        return False
+    normalized_columns = {str(col).strip() for col in header}
+    required = {label_column, "theta", "alpha", "beta"}
+    return required.issubset(normalized_columns)
+
+
 def load_band_features_from_dataframe(df, label_column="label"):
     if label_column not in df.columns:
         raise ValueError(f"Label column '{label_column}' not found")
@@ -73,35 +98,47 @@ def load_band_features_from_dataframe(df, label_column="label"):
 
 
 def load_band_features(csv_path, label_column="label"):
-    df = pd.read_csv(csv_path)
+    df = load_feature_file(csv_path)
     return load_band_features_from_dataframe(df, label_column=label_column)
 
 
-def find_csv_files(folder):
+def find_feature_files(folder, label_column="label"):
+    """Find all CSV-formatted feature files in a split folder.
+
+    The training interface may produce files named like `Sampo0-features` without
+    a `.csv` suffix. This function checks file contents instead of extension.
+    """
     folder = Path(folder)
     if not folder.exists():
         raise FileNotFoundError(f"Dataset split folder does not exist: {folder}")
-    csv_files = sorted(folder.glob("*.csv"))
-    if not csv_files:
-        raise FileNotFoundError(f"No CSV files found in dataset split folder: {folder}")
-    return csv_files
+
+    feature_files = sorted(
+        path for path in folder.iterdir()
+        if looks_like_feature_file(path, label_column=label_column)
+    )
+    if not feature_files:
+        raise FileNotFoundError(
+            f"No CSV-formatted feature files found in dataset split folder: {folder}. "
+            "Expected files with columns: label, theta, alpha, beta. The file does not need a .csv extension."
+        )
+    return feature_files
 
 
-def split_folder_has_csvs(folder):
+def split_folder_has_feature_files(folder, label_column="label"):
     folder = Path(folder)
-    return folder.exists() and any(folder.glob("*.csv"))
+    return folder.exists() and any(looks_like_feature_file(path, label_column=label_column) for path in folder.iterdir())
 
 
 def load_split_folder(folder, label_column="label"):
     frames = []
-    csv_files = find_csv_files(folder)
-    for csv_file in csv_files:
-        df = pd.read_csv(csv_file)
-        df["source_file"] = csv_file.name
+    feature_files = find_feature_files(folder, label_column=label_column)
+    for feature_file in feature_files:
+        df = load_feature_file(feature_file)
+        df["source_file"] = feature_file.name
         frames.append(df)
     split_df = pd.concat(frames, ignore_index=True)
     X, y = load_band_features_from_dataframe(split_df, label_column=label_column)
-    return X, y, csv_files
+    return X, y, feature_files
 
 
 def load_dataset_folder(dataset_dir, label_column="label"):
@@ -115,7 +152,7 @@ def load_dataset_folder(dataset_dir, label_column="label"):
 
     for split_name in OPTIONAL_SPLIT_NAMES:
         split_path = dataset_dir / split_name
-        if split_folder_has_csvs(split_path):
+        if split_folder_has_feature_files(split_path, label_column=label_column):
             X, y, files = load_split_folder(split_path, label_column=label_column)
             splits[split_name] = {"X": X, "y": y, "files": files}
         else:
@@ -304,7 +341,8 @@ def train_from_dataset_folder(dataset_dir, label_column="label", save_model_path
     splits = load_dataset_folder(dataset_dir, label_column=label_column)
 
     for split_name, split in splits.items():
-        print(f"Loaded {len(split['files'])} CSV file(s) from {Path(dataset_dir) / split_name}")
+        loaded_files = ", ".join(str(path.name) for path in split["files"])
+        print(f"Loaded {len(split['files'])} feature file(s) from {Path(dataset_dir) / split_name}: {loaded_files}")
         print_label_distribution(split_name, split["y"])
         require_two_classes(split["y"], split_name)
 
@@ -351,8 +389,8 @@ def main(csv_path=None, dataset_dir=None, label_column="label", save_model_path=
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Train EEG focus SVM from labeled OpenBCI band features")
-    parser.add_argument("--csv-path", help="Path to one <subject>-features.csv or raw collector CSV")
-    parser.add_argument("--dataset-dir", help="Folder containing required training/ and testing/ CSV folders, plus optional validation/")
+    parser.add_argument("--csv-path", help="Path to one feature file, with or without .csv extension")
+    parser.add_argument("--dataset-dir", help="Folder containing required training/ and testing/ feature folders, plus optional validation/")
     parser.add_argument("--label", default="label", help="Name of the label column")
     parser.add_argument("--save-model", help="Path to save the trained sklearn model")
     parser.add_argument("--confusion-output-dir", help="Optional folder to save confusion_matrix_<split>.csv files")
