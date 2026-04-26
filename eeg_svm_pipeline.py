@@ -19,9 +19,12 @@ BASE_FEATURES = ["theta", "alpha", "beta"]
 RATIO_FEATURES = ["beta_alpha_ratio", "beta_theta_ratio", "theta_alpha_ratio"]
 MODEL_FEATURES = BASE_FEATURES + RATIO_FEATURES
 EPSILON = 1e-9
-SPLIT_NAMES = ["training", "testing", "validation"]
+REQUIRED_SPLIT_NAMES = ["training", "testing"]
+OPTIONAL_SPLIT_NAMES = ["validation"]
 FOCUSED_LABEL = "focused"
 RELAXED_LABEL = "relaxed"
+LABEL_ORDER = [0, 1]
+LABEL_NAMES = [RELAXED_LABEL, FOCUSED_LABEL]
 
 # New data should use only the canonical labels above.
 # Older task-specific labels are accepted only so existing CSVs remain usable.
@@ -84,6 +87,11 @@ def find_csv_files(folder):
     return csv_files
 
 
+def split_folder_has_csvs(folder):
+    folder = Path(folder)
+    return folder.exists() and any(folder.glob("*.csv"))
+
+
 def load_split_folder(folder, label_column="label"):
     frames = []
     csv_files = find_csv_files(folder)
@@ -99,10 +107,20 @@ def load_split_folder(folder, label_column="label"):
 def load_dataset_folder(dataset_dir, label_column="label"):
     dataset_dir = Path(dataset_dir)
     splits = {}
-    for split_name in SPLIT_NAMES:
+
+    for split_name in REQUIRED_SPLIT_NAMES:
         split_path = dataset_dir / split_name
         X, y, files = load_split_folder(split_path, label_column=label_column)
         splits[split_name] = {"X": X, "y": y, "files": files}
+
+    for split_name in OPTIONAL_SPLIT_NAMES:
+        split_path = dataset_dir / split_name
+        if split_folder_has_csvs(split_path):
+            X, y, files = load_split_folder(split_path, label_column=label_column)
+            splits[split_name] = {"X": X, "y": y, "files": files}
+        else:
+            print(f"Optional split '{split_name}' not found or empty; skipping.")
+
     return splits
 
 
@@ -189,10 +207,42 @@ def tune_and_train(X, y, use_pca=True, scaler="standard", probability=True):
     return search
 
 
-def evaluate_model(model, X_test, y_test, split_name="test"):
+def confusion_matrix_dataframe(y_true, y_pred):
+    matrix = confusion_matrix(y_true, y_pred, labels=LABEL_ORDER)
+    return pd.DataFrame(
+        matrix,
+        index=[f"actual_{name}" for name in LABEL_NAMES],
+        columns=[f"predicted_{name}" for name in LABEL_NAMES],
+    )
+
+
+def save_confusion_matrix_csv(cm_df, split_name, output_dir):
+    if output_dir is None:
+        return
+    output_dir = Path(output_dir)
+    output_dir.mkdir(parents=True, exist_ok=True)
+    path = output_dir / f"confusion_matrix_{split_name}.csv"
+    cm_df.to_csv(path)
+    print(f"Saved {split_name} confusion matrix to {path}")
+
+
+def print_confusion_summary(split_name, cm_df):
+    print(f"\n{split_name} confusion matrix table:")
+    print(cm_df.to_string())
+    tn = int(cm_df.loc[f"actual_{RELAXED_LABEL}", f"predicted_{RELAXED_LABEL}"])
+    fp = int(cm_df.loc[f"actual_{RELAXED_LABEL}", f"predicted_{FOCUSED_LABEL}"])
+    fn = int(cm_df.loc[f"actual_{FOCUSED_LABEL}", f"predicted_{RELAXED_LABEL}"])
+    tp = int(cm_df.loc[f"actual_{FOCUSED_LABEL}", f"predicted_{FOCUSED_LABEL}"])
+    print(f"True relaxed: {tn} | False focused: {fp} | False relaxed: {fn} | True focused: {tp}")
+
+
+def evaluate_model(model, X_test, y_test, split_name="test", confusion_output_dir=None):
     y_pred = model.predict(X_test)
-    print(f"\n{split_name} classification report:\n", classification_report(y_test, y_pred, digits=4))
-    print(f"{split_name} confusion matrix:\n", confusion_matrix(y_test, y_pred))
+    print(f"\n{split_name} classification report:\n", classification_report(y_test, y_pred, digits=4, target_names=LABEL_NAMES))
+    cm_df = confusion_matrix_dataframe(y_test, y_pred)
+    print_confusion_summary(split_name, cm_df)
+    save_confusion_matrix_csv(cm_df, split_name, confusion_output_dir)
+    return cm_df
 
 
 def save_model(model, path):
@@ -223,7 +273,7 @@ def predict_focus(model, X, threshold=0.5, label_map=None):
     return pd.DataFrame({"confidence": positive_probs, "focus": labels}, index=X.index)
 
 
-def train_from_single_csv(csv_path, label_column="label", save_model_path=None):
+def train_from_single_csv(csv_path, label_column="label", save_model_path=None, confusion_output_dir=None):
     X, y = load_band_features(csv_path, label_column=label_column)
     print_label_distribution("full csv", y)
     require_two_classes(y, "full csv")
@@ -242,7 +292,7 @@ def train_from_single_csv(csv_path, label_column="label", save_model_path=None):
     print("Best cross-validation accuracy:", model_search.best_score_)
 
     best_model = model_search.best_estimator_
-    evaluate_model(best_model, X_test, y_test, split_name="random holdout")
+    evaluate_model(best_model, X_test, y_test, split_name="random_holdout", confusion_output_dir=confusion_output_dir)
 
     if save_model_path:
         save_model(best_model, save_model_path)
@@ -250,7 +300,7 @@ def train_from_single_csv(csv_path, label_column="label", save_model_path=None):
     return best_model
 
 
-def train_from_dataset_folder(dataset_dir, label_column="label", save_model_path=None):
+def train_from_dataset_folder(dataset_dir, label_column="label", save_model_path=None, confusion_output_dir=None):
     splits = load_dataset_folder(dataset_dir, label_column=label_column)
 
     for split_name, split in splits.items():
@@ -262,16 +312,18 @@ def train_from_dataset_folder(dataset_dir, label_column="label", save_model_path
     y_train = splits["training"]["y"]
     X_test = prepare_features(splits["testing"]["X"], z_thresh=3.5, smooth_window=3, fill_method="median")
     y_test = splits["testing"]["y"]
-    X_val = prepare_features(splits["validation"]["X"], z_thresh=3.5, smooth_window=3, fill_method="median")
-    y_val = splits["validation"]["y"]
 
     model_search = tune_and_train(X_train, y_train, use_pca=True, scaler="standard", probability=True)
     print("Best parameters:", model_search.best_params_)
     print("Best training cross-validation accuracy:", model_search.best_score_)
 
     best_model = model_search.best_estimator_
-    evaluate_model(best_model, X_test, y_test, split_name="testing")
-    evaluate_model(best_model, X_val, y_val, split_name="validation")
+    evaluate_model(best_model, X_test, y_test, split_name="testing", confusion_output_dir=confusion_output_dir)
+
+    if "validation" in splits:
+        X_val = prepare_features(splits["validation"]["X"], z_thresh=3.5, smooth_window=3, fill_method="median")
+        y_val = splits["validation"]["y"]
+        evaluate_model(best_model, X_val, y_val, split_name="validation", confusion_output_dir=confusion_output_dir)
 
     if save_model_path:
         save_model(best_model, save_model_path)
@@ -279,20 +331,31 @@ def train_from_dataset_folder(dataset_dir, label_column="label", save_model_path
     return best_model
 
 
-def main(csv_path=None, dataset_dir=None, label_column="label", save_model_path=None):
+def main(csv_path=None, dataset_dir=None, label_column="label", save_model_path=None, confusion_output_dir=None):
     if dataset_dir:
-        return train_from_dataset_folder(dataset_dir, label_column=label_column, save_model_path=save_model_path)
+        return train_from_dataset_folder(
+            dataset_dir,
+            label_column=label_column,
+            save_model_path=save_model_path,
+            confusion_output_dir=confusion_output_dir,
+        )
     if csv_path:
-        return train_from_single_csv(csv_path, label_column=label_column, save_model_path=save_model_path)
+        return train_from_single_csv(
+            csv_path,
+            label_column=label_column,
+            save_model_path=save_model_path,
+            confusion_output_dir=confusion_output_dir,
+        )
     raise ValueError("Provide either --csv-path or --dataset-dir")
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Train EEG focus SVM from labeled OpenBCI band features")
     parser.add_argument("--csv-path", help="Path to one <subject>-features.csv or raw collector CSV")
-    parser.add_argument("--dataset-dir", help="Folder containing training/, testing/, and validation/ CSV folders")
+    parser.add_argument("--dataset-dir", help="Folder containing required training/ and testing/ CSV folders, plus optional validation/")
     parser.add_argument("--label", default="label", help="Name of the label column")
     parser.add_argument("--save-model", help="Path to save the trained sklearn model")
+    parser.add_argument("--confusion-output-dir", help="Optional folder to save confusion_matrix_<split>.csv files")
     args = parser.parse_args()
 
     main(
@@ -300,4 +363,5 @@ if __name__ == "__main__":
         dataset_dir=args.dataset_dir,
         label_column=args.label,
         save_model_path=args.save_model,
+        confusion_output_dir=args.confusion_output_dir,
     )
