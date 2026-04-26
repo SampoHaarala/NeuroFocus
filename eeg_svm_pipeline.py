@@ -4,12 +4,13 @@ from pathlib import Path
 import joblib
 import numpy as np
 import pandas as pd
-from sklearn.decomposition import PCA
+from sklearn.calibration import CalibratedClassifierCV
+from sklearn.kernel_approximation import RBFSampler
 from sklearn.metrics import classification_report, confusion_matrix
-from sklearn.model_selection import GridSearchCV, StratifiedKFold, train_test_split
+from sklearn.model_selection import train_test_split
 from sklearn.pipeline import Pipeline
-from sklearn.preprocessing import RobustScaler, StandardScaler
-from sklearn.svm import SVC
+from sklearn.preprocessing import StandardScaler
+from sklearn.svm import LinearSVC
 
 
 # Gamma and delta are ignored for the first focus model.
@@ -25,7 +26,7 @@ FOCUSED_LABEL = "focused"
 RELAXED_LABEL = "relaxed"
 LABEL_ORDER = [0, 1]
 LABEL_NAMES = [RELAXED_LABEL, FOCUSED_LABEL]
-REQUIRED_FILE_COLUMNS = {"label", "theta", "alpha", "beta"}
+DEFAULT_SMOOTH_WINDOW = 5
 
 # New data should use only the canonical labels above.
 # Older task-specific labels are accepted only so existing CSVs remain usable.
@@ -209,13 +210,13 @@ def replace_outliers(X, z_thresh=3.0, fill_method="median"):
     return Xr
 
 
-def smooth_windows(X, window_size=3, min_periods=1):
+def smooth_windows(X, window_size=DEFAULT_SMOOTH_WINDOW, min_periods=1):
     if window_size is None or window_size <= 1:
         return X
     return X.rolling(window=window_size, min_periods=min_periods, center=True).mean().bfill().ffill()
 
 
-def prepare_features(X, z_thresh=3.5, smooth_window=3, fill_method="median"):
+def prepare_features(X, z_thresh=3.5, smooth_window=DEFAULT_SMOOTH_WINDOW, fill_method="median"):
     Xp = X.copy()
     Xp = Xp.apply(pd.to_numeric, errors="coerce")
     Xp = Xp.replace([np.inf, -np.inf], np.nan)
@@ -225,46 +226,72 @@ def prepare_features(X, z_thresh=3.5, smooth_window=3, fill_method="median"):
     return Xp
 
 
-def build_pipeline(use_pca=True, pca_variance=0.95, scaler="standard", probability=True):
-    steps = []
-    if scaler == "standard":
-        steps.append(("scaler", StandardScaler()))
-    elif scaler == "robust":
-        steps.append(("scaler", RobustScaler()))
-    else:
-        raise ValueError("scaler must be 'standard' or 'robust'")
+def make_calibrated_classifier(base_classifier, cv):
+    """Create CalibratedClassifierCV across sklearn versions.
 
-    if use_pca:
-        steps.append(("pca", PCA(n_components=pca_variance, svd_solver="full")))
-
-    steps.append(("svc", SVC(kernel="rbf", probability=probability, class_weight="balanced")))
-    return Pipeline(steps)
+    sklearn renamed base_estimator to estimator in newer versions. This helper
+    keeps the script usable on both old and new sklearn installs.
+    """
+    try:
+        return CalibratedClassifierCV(estimator=base_classifier, method="sigmoid", cv=cv)
+    except TypeError:
+        return CalibratedClassifierCV(base_estimator=base_classifier, method="sigmoid", cv=cv)
 
 
-def tune_and_train(X, y, use_pca=True, scaler="standard", probability=True):
+def build_pipeline(rbf_gamma=1.0, rbf_components=300, svm_c=1.0, calibration_cv=3, random_state=42):
+    """Build a fast non-linear SVM pipeline.
+
+    Full RBF SVC training is slow on large EEG datasets. This keeps non-linearity
+    by approximating the RBF kernel with RBFSampler, then trains a LinearSVC.
+    The final calibrated wrapper provides predict_proba() for confidence scores.
+    """
+    linear_svm = LinearSVC(
+        C=svm_c,
+        class_weight="balanced",
+        max_iter=10000,
+        random_state=random_state,
+    )
+    calibrated_svm = make_calibrated_classifier(linear_svm, cv=calibration_cv)
+    return Pipeline(
+        steps=[
+            ("scaler", StandardScaler()),
+            ("rbf_features", RBFSampler(gamma=rbf_gamma, n_components=rbf_components, random_state=random_state)),
+            ("svc", calibrated_svm),
+        ]
+    )
+
+
+def train_fast_svm(
+    X,
+    y,
+    rbf_gamma=1.0,
+    rbf_components=300,
+    svm_c=1.0,
+    calibration_cv=3,
+    random_state=42,
+):
     class_counts = pd.Series(y).value_counts()
     min_class_count = int(class_counts.min())
     if min_class_count < 2:
         raise ValueError(
-            f"Need at least 2 samples per class for cross-validation. Label counts: {class_counts.to_dict()}"
+            f"Need at least 2 samples per class for calibrated SVM training. Label counts: {class_counts.to_dict()}"
         )
-    n_splits = min(5, min_class_count)
+    calibration_cv = max(2, min(calibration_cv, min_class_count))
     print_progress(
-        f"Starting hyperparameter search: {len(X)} samples, class counts={class_counts.to_dict()}, cv={n_splits}"
+        "Training fast SVM: "
+        f"samples={len(X)}, class_counts={class_counts.to_dict()}, "
+        f"rbf_gamma={rbf_gamma}, rbf_components={rbf_components}, C={svm_c}, calibration_cv={calibration_cv}"
     )
-    pipe = build_pipeline(use_pca=use_pca, scaler=scaler, probability=probability)
-    param_grid = {"svc__C": [0.1, 1.0, 10.0], "svc__gamma": ["scale", "auto"]}
-    search = GridSearchCV(
-        pipe,
-        param_grid,
-        cv=StratifiedKFold(n_splits=n_splits, shuffle=True, random_state=42),
-        scoring="accuracy",
-        n_jobs=-1,
-        verbose=1,
+    model = build_pipeline(
+        rbf_gamma=rbf_gamma,
+        rbf_components=rbf_components,
+        svm_c=svm_c,
+        calibration_cv=calibration_cv,
+        random_state=random_state,
     )
-    search.fit(X, y)
-    print_progress("Hyperparameter search complete")
-    return search
+    model.fit(X, y)
+    print_progress("Fast SVM training complete")
+    return model
 
 
 def confusion_matrix_dataframe(y_true, y_pred):
@@ -328,7 +355,7 @@ def predict_focus(model, X, threshold=0.5, label_map=None):
         label_map = {1: FOCUSED_LABEL, 0: RELAXED_LABEL}
 
     X = add_ratio_features(X)
-    X_prepared = prepare_features(X[MODEL_FEATURES], z_thresh=3.5, smooth_window=3, fill_method="median")
+    X_prepared = prepare_features(X[MODEL_FEATURES], z_thresh=3.5, smooth_window=DEFAULT_SMOOTH_WINDOW, fill_method="median")
 
     if not hasattr(model, "predict_proba"):
         raise ValueError("Model must support probability estimates")
@@ -343,7 +370,17 @@ def predict_focus(model, X, threshold=0.5, label_map=None):
     return pd.DataFrame({"confidence": positive_probs, "focus": labels}, index=X.index)
 
 
-def train_from_single_csv(csv_path, label_column="label", save_model_path=None, confusion_output_dir=None):
+def train_from_single_csv(
+    csv_path,
+    label_column="label",
+    save_model_path=None,
+    confusion_output_dir=None,
+    smooth_window=DEFAULT_SMOOTH_WINDOW,
+    rbf_gamma=1.0,
+    rbf_components=300,
+    svm_c=1.0,
+    calibration_cv=3,
+):
     print_progress(f"Loading single CSV feature file: {csv_path}")
     X, y = load_band_features(csv_path, label_column=label_column)
     print_label_distribution("full csv", y)
@@ -351,7 +388,7 @@ def train_from_single_csv(csv_path, label_column="label", save_model_path=None, 
     require_min_samples_per_class(y, "full csv", min_samples=2)
 
     print_progress("Preparing features and splitting data")
-    X_prepared = prepare_features(X, z_thresh=3.5, smooth_window=3, fill_method="median")
+    X_prepared = prepare_features(X, z_thresh=3.5, smooth_window=smooth_window, fill_method="median")
     X_train, X_test, y_train, y_test = train_test_split(
         X_prepared,
         y,
@@ -360,11 +397,14 @@ def train_from_single_csv(csv_path, label_column="label", save_model_path=None, 
         random_state=42,
     )
 
-    model_search = tune_and_train(X_train, y_train, use_pca=True, scaler="standard", probability=True)
-    print("Best parameters:", model_search.best_params_)
-    print("Best cross-validation accuracy:", model_search.best_score_)
-
-    best_model = model_search.best_estimator_
+    best_model = train_fast_svm(
+        X_train,
+        y_train,
+        rbf_gamma=rbf_gamma,
+        rbf_components=rbf_components,
+        svm_c=svm_c,
+        calibration_cv=calibration_cv,
+    )
     print_progress("Evaluating random holdout data")
     evaluate_model(best_model, X_test, y_test, split_name="random_holdout", confusion_output_dir=confusion_output_dir)
 
@@ -374,7 +414,17 @@ def train_from_single_csv(csv_path, label_column="label", save_model_path=None, 
     return best_model
 
 
-def train_from_dataset_folder(dataset_dir, label_column="label", save_model_path=None, confusion_output_dir=None):
+def train_from_dataset_folder(
+    dataset_dir,
+    label_column="label",
+    save_model_path=None,
+    confusion_output_dir=None,
+    smooth_window=DEFAULT_SMOOTH_WINDOW,
+    rbf_gamma=1.0,
+    rbf_components=300,
+    svm_c=1.0,
+    calibration_cv=3,
+):
     print_progress(f"Training from dataset folder: {dataset_dir}")
     splits = load_dataset_folder(dataset_dir, label_column=label_column)
 
@@ -383,24 +433,27 @@ def train_from_dataset_folder(dataset_dir, label_column="label", save_model_path
         print(f"Loaded {len(split['files'])} feature file(s) from {Path(dataset_dir) / split_name}: {loaded_files}")
         print_label_distribution(split_name, split["y"])
         require_two_classes(split["y"], split_name)
+        require_min_samples_per_class(split["y"], split_name, min_samples=2)
 
-    X_train = prepare_features(splits["training"]["X"], z_thresh=3.5, smooth_window=3, fill_method="median")
+    X_train = prepare_features(splits["training"]["X"], z_thresh=3.5, smooth_window=smooth_window, fill_method="median")
     y_train = splits["training"]["y"]
-    X_test = prepare_features(splits["testing"]["X"], z_thresh=3.5, smooth_window=3, fill_method="median")
+    X_test = prepare_features(splits["testing"]["X"], z_thresh=3.5, smooth_window=smooth_window, fill_method="median")
     y_test = splits["testing"]["y"]
 
-    model_search = tune_and_train(X_train, y_train, use_pca=True, scaler="standard", probability=True)
-    print("Best parameters:", model_search.best_params_)
-    print("Best training cross-validation accuracy:", model_search.best_score_)
+    best_model = train_fast_svm(
+        X_train,
+        y_train,
+        rbf_gamma=rbf_gamma,
+        rbf_components=rbf_components,
+        svm_c=svm_c,
+        calibration_cv=calibration_cv,
+    )
 
-    best_model = model_search.best_estimator_
     print_progress("Evaluating testing split")
     evaluate_model(best_model, X_test, y_test, split_name="testing", confusion_output_dir=confusion_output_dir)
 
     if "validation" in splits:
-        require_two_classes(splits["validation"]["y"], "validation")
-        require_min_samples_per_class(splits["validation"]["y"], "validation", min_samples=2)
-        X_val = prepare_features(splits["validation"]["X"], z_thresh=3.5, smooth_window=3, fill_method="median")
+        X_val = prepare_features(splits["validation"]["X"], z_thresh=3.5, smooth_window=smooth_window, fill_method="median")
         y_val = splits["validation"]["y"]
         print_progress("Evaluating validation split")
         evaluate_model(best_model, X_val, y_val, split_name="validation", confusion_output_dir=confusion_output_dir)
@@ -411,7 +464,18 @@ def train_from_dataset_folder(dataset_dir, label_column="label", save_model_path
     return best_model
 
 
-def main(csv_path=None, dataset_dir=None, label_column="label", save_model_path=None, confusion_output_dir=None):
+def main(
+    csv_path=None,
+    dataset_dir=None,
+    label_column="label",
+    save_model_path=None,
+    confusion_output_dir=None,
+    smooth_window=DEFAULT_SMOOTH_WINDOW,
+    rbf_gamma=1.0,
+    rbf_components=300,
+    svm_c=1.0,
+    calibration_cv=3,
+):
     if dataset_dir:
         print_progress(f"Selected dataset folder mode: {dataset_dir}")
         return train_from_dataset_folder(
@@ -419,6 +483,11 @@ def main(csv_path=None, dataset_dir=None, label_column="label", save_model_path=
             label_column=label_column,
             save_model_path=save_model_path,
             confusion_output_dir=confusion_output_dir,
+            smooth_window=smooth_window,
+            rbf_gamma=rbf_gamma,
+            rbf_components=rbf_components,
+            svm_c=svm_c,
+            calibration_cv=calibration_cv,
         )
     if csv_path:
         return train_from_single_csv(
@@ -426,6 +495,11 @@ def main(csv_path=None, dataset_dir=None, label_column="label", save_model_path=
             label_column=label_column,
             save_model_path=save_model_path,
             confusion_output_dir=confusion_output_dir,
+            smooth_window=smooth_window,
+            rbf_gamma=rbf_gamma,
+            rbf_components=rbf_components,
+            svm_c=svm_c,
+            calibration_cv=calibration_cv,
         )
     raise ValueError("Provide either --csv-path or --dataset-dir")
 
@@ -437,6 +511,11 @@ if __name__ == "__main__":
     parser.add_argument("--label", default="label", help="Name of the label column")
     parser.add_argument("--save-model", help="Path to save the trained sklearn model")
     parser.add_argument("--confusion-output-dir", help="Optional folder to save confusion_matrix_<split>.csv files")
+    parser.add_argument("--smooth-window", type=int, default=DEFAULT_SMOOTH_WINDOW, help="Smoothing window size. Default: 5")
+    parser.add_argument("--rbf-gamma", type=float, default=1.0, help="RBFSampler gamma. Default: 1.0")
+    parser.add_argument("--rbf-components", type=int, default=300, help="Number of RBF approximation components. Default: 300")
+    parser.add_argument("--svm-c", type=float, default=1.0, help="Linear SVM C value. Default: 1.0")
+    parser.add_argument("--calibration-cv", type=int, default=3, help="Probability calibration folds. Default: 3")
     args = parser.parse_args()
 
     main(
@@ -445,4 +524,9 @@ if __name__ == "__main__":
         label_column=args.label,
         save_model_path=args.save_model,
         confusion_output_dir=args.confusion_output_dir,
+        smooth_window=args.smooth_window,
+        rbf_gamma=args.rbf_gamma,
+        rbf_components=args.rbf_components,
+        svm_c=args.svm_c,
+        calibration_cv=args.calibration_cv,
     )
