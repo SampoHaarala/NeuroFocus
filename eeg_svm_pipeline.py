@@ -48,6 +48,10 @@ def encode_label(value):
     return 1 if normalize_label_text(value) == FOCUSED_LABEL else 0
 
 
+def print_progress(message):
+    print(f"[progress] {message}")
+
+
 def add_ratio_features(df):
     X = df.copy()
     for col in BASE_FEATURES:
@@ -143,6 +147,7 @@ def load_split_folder(folder, label_column="label"):
 
 def load_dataset_folder(dataset_dir, label_column="label"):
     dataset_dir = Path(dataset_dir)
+    print_progress(f"Loading dataset directory: {dataset_dir}")
     splits = {}
 
     for split_name in REQUIRED_SPLIT_NAMES:
@@ -173,6 +178,15 @@ def require_two_classes(y, split_name):
         raise ValueError(
             f"{split_name} split has only {len(unique)} class(es): {sorted(unique)}. "
             f"Each split should contain both labels: {FOCUSED_LABEL} and {RELAXED_LABEL}."
+        )
+
+
+def require_min_samples_per_class(y, split_name, min_samples=2):
+    counts = pd.Series(y).value_counts()
+    if (counts < min_samples).any():
+        raise ValueError(
+            f"{split_name} split must contain at least {min_samples} samples for each label. "
+            f"Label counts: {counts.to_dict()}"
         )
 
 
@@ -228,8 +242,16 @@ def build_pipeline(use_pca=True, pca_variance=0.95, scaler="standard", probabili
 
 
 def tune_and_train(X, y, use_pca=True, scaler="standard", probability=True):
-    min_class_count = int(pd.Series(y).value_counts().min())
-    n_splits = max(2, min(5, min_class_count))
+    class_counts = pd.Series(y).value_counts()
+    min_class_count = int(class_counts.min())
+    if min_class_count < 2:
+        raise ValueError(
+            f"Need at least 2 samples per class for cross-validation. Label counts: {class_counts.to_dict()}"
+        )
+    n_splits = min(5, min_class_count)
+    print_progress(
+        f"Starting hyperparameter search: {len(X)} samples, class counts={class_counts.to_dict()}, cv={n_splits}"
+    )
     pipe = build_pipeline(use_pca=use_pca, scaler=scaler, probability=probability)
     param_grid = {"svc__C": [0.1, 1.0, 10.0], "svc__gamma": ["scale", "auto"]}
     search = GridSearchCV(
@@ -241,6 +263,7 @@ def tune_and_train(X, y, use_pca=True, scaler="standard", probability=True):
         verbose=1,
     )
     search.fit(X, y)
+    print_progress("Hyperparameter search complete")
     return search
 
 
@@ -275,7 +298,17 @@ def print_confusion_summary(split_name, cm_df):
 
 def evaluate_model(model, X_test, y_test, split_name="test", confusion_output_dir=None):
     y_pred = model.predict(X_test)
-    print(f"\n{split_name} classification report:\n", classification_report(y_test, y_pred, digits=4, target_names=LABEL_NAMES))
+    print(
+        f"\n{split_name} classification report:\n",
+        classification_report(
+            y_test,
+            y_pred,
+            digits=4,
+            labels=LABEL_ORDER,
+            target_names=LABEL_NAMES,
+            zero_division=0,
+        ),
+    )
     cm_df = confusion_matrix_dataframe(y_test, y_pred)
     print_confusion_summary(split_name, cm_df)
     save_confusion_matrix_csv(cm_df, split_name, confusion_output_dir)
@@ -311,10 +344,13 @@ def predict_focus(model, X, threshold=0.5, label_map=None):
 
 
 def train_from_single_csv(csv_path, label_column="label", save_model_path=None, confusion_output_dir=None):
+    print_progress(f"Loading single CSV feature file: {csv_path}")
     X, y = load_band_features(csv_path, label_column=label_column)
     print_label_distribution("full csv", y)
     require_two_classes(y, "full csv")
+    require_min_samples_per_class(y, "full csv", min_samples=2)
 
+    print_progress("Preparing features and splitting data")
     X_prepared = prepare_features(X, z_thresh=3.5, smooth_window=3, fill_method="median")
     X_train, X_test, y_train, y_test = train_test_split(
         X_prepared,
@@ -329,6 +365,7 @@ def train_from_single_csv(csv_path, label_column="label", save_model_path=None, 
     print("Best cross-validation accuracy:", model_search.best_score_)
 
     best_model = model_search.best_estimator_
+    print_progress("Evaluating random holdout data")
     evaluate_model(best_model, X_test, y_test, split_name="random_holdout", confusion_output_dir=confusion_output_dir)
 
     if save_model_path:
@@ -338,6 +375,7 @@ def train_from_single_csv(csv_path, label_column="label", save_model_path=None, 
 
 
 def train_from_dataset_folder(dataset_dir, label_column="label", save_model_path=None, confusion_output_dir=None):
+    print_progress(f"Training from dataset folder: {dataset_dir}")
     splits = load_dataset_folder(dataset_dir, label_column=label_column)
 
     for split_name, split in splits.items():
@@ -356,11 +394,15 @@ def train_from_dataset_folder(dataset_dir, label_column="label", save_model_path
     print("Best training cross-validation accuracy:", model_search.best_score_)
 
     best_model = model_search.best_estimator_
+    print_progress("Evaluating testing split")
     evaluate_model(best_model, X_test, y_test, split_name="testing", confusion_output_dir=confusion_output_dir)
 
     if "validation" in splits:
+        require_two_classes(splits["validation"]["y"], "validation")
+        require_min_samples_per_class(splits["validation"]["y"], "validation", min_samples=2)
         X_val = prepare_features(splits["validation"]["X"], z_thresh=3.5, smooth_window=3, fill_method="median")
         y_val = splits["validation"]["y"]
+        print_progress("Evaluating validation split")
         evaluate_model(best_model, X_val, y_val, split_name="validation", confusion_output_dir=confusion_output_dir)
 
     if save_model_path:
@@ -371,6 +413,7 @@ def train_from_dataset_folder(dataset_dir, label_column="label", save_model_path
 
 def main(csv_path=None, dataset_dir=None, label_column="label", save_model_path=None, confusion_output_dir=None):
     if dataset_dir:
+        print_progress(f"Selected dataset folder mode: {dataset_dir}")
         return train_from_dataset_folder(
             dataset_dir,
             label_column=label_column,
