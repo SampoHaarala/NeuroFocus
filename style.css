@@ -4,6 +4,39 @@
     box-sizing: border-box;
 }
 
+:root {
+    /* CSS Theme Variables - Dynamic based on app state */
+    --accent-color: #4A4A4A;
+    --accent-color-light: rgba(74, 74, 74, 0.2);
+    --accent-glow: rgba(74, 74, 74, 0.4);
+    --state-label: "IDLE";
+    transition: --accent-color 0.5s ease, --accent-color-light 0.5s ease, --accent-glow 0.5s ease;
+}
+
+/* FOCUS State */
+:root.state-focus {
+    --accent-color: #a855f7;
+    --accent-color-light: rgba(168, 85, 247, 0.2);
+    --accent-glow: rgba(168, 85, 247, 0.4);
+    --state-label: "FOCUS";
+}
+
+/* RELAX State */
+:root.state-relax {
+    --accent-color: #22C55E;
+    --accent-color-light: rgba(34, 197, 94, 0.2);
+    --accent-glow: rgba(34, 197, 94, 0.4);
+    --state-label: "RELAX";
+}
+
+/* IDLE State (default) */
+:root.state-idle {
+    --accent-color: #4A4A4A;
+    --accent-color-light: rgba(74, 74, 74, 0.2);
+    --accent-glow: rgba(74, 74, 74, 0.4);
+    --state-label: "IDLE";
+}
+
 body {
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
     background: #0a0a14;
@@ -145,7 +178,8 @@ body {
 
 .circle-bg {
     position: absolute; width: 100%; height: 100%; border-radius: 50%;
-    border: 2px solid rgba(168, 85, 247, 0.1);
+    border: 2px solid var(--accent-color-light);
+    transition: border-color 0.5s ease;
 }
 
 .circle-ticks {
@@ -165,12 +199,13 @@ body {
 
 .circle-progress {
     fill: none;
-    stroke: #a855f7;
+    stroke: var(--accent-color);
     stroke-width: 3;
     stroke-linecap: round;
     stroke-dasharray: 971.24;
     stroke-dashoffset: 0;
-    transition: stroke-dashoffset 0.6s ease;
+    filter: drop-shadow(0 0 8px var(--accent-glow));
+    transition: stroke 0.5s ease, filter 0.5s ease, stroke-dashoffset 0.6s ease;
 }
 
 .circle-inner {
@@ -180,10 +215,10 @@ body {
 
 .focus-label { font-size: 12px; color: #666; letter-spacing: 2px; margin-bottom: 5px; }
 .focus-value { font-size: 84px; font-weight: 300; color: #ffffff; line-height: 1; }
-.focus-percent { font-size: 24px; color: #a855f7; vertical-align: top; margin-left: 5px; }
+.focus-percent { font-size: 24px; color: var(--accent-color); vertical-align: top; margin-left: 5px; transition: color 0.5s ease; }
 .circle-divider { width: 30px; height: 2px; background: rgba(255, 255, 255, 0.15); margin: 15px 0; }
-.flow-state-label { font-size: 10px; color: #6b7280; letter-spacing: 2px; margin-top: 0; }
-.flow-state-time { font-size: 11px; color: #999; margin-top: 5px; }
+.app-state { font-size: 10px; color: var(--accent-color); letter-spacing: 2px; margin-top: 0; font-weight: 600; text-transform: uppercase; transition: color 0.5s ease; }
+.session-timer { font-size: 11px; color: #999; margin-top: 5px; font-family: 'Courier New', monospace; }
 
 /* BUTTONS */
 .button-group {
