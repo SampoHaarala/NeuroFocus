@@ -17,6 +17,8 @@ import pandas as pd
 
 OPENBCI_BANDS = ["delta", "theta", "alpha", "beta", "gamma"]
 ML_FEATURE_BANDS = ["theta", "alpha", "beta"]
+FOCUSED_LABEL = "focused"
+RELAXED_LABEL = "relaxed"
 
 READING_TEXT = """
 How focus changes during studying
@@ -153,10 +155,10 @@ class TrainingInterface:
         self.quiz_is_correct = ""
         self.stages = [
             Stage("Prepare", None, "instruction", args.prepare_seconds, False),
-            Stage("Focused reading", "focused_reading", "reading", args.focus_seconds, True),
-            Stage("Reading recall", "focused_reading", "quiz", args.quiz_seconds, True),
-            Stage("Focused arithmetic", "focused_math", "math", args.math_seconds, True),
-            Stage("Relaxed scenery", "relaxed", "relax", args.relax_seconds, True),
+            Stage("Focused reading", FOCUSED_LABEL, "reading", args.focus_seconds, True),
+            Stage("Reading recall", FOCUSED_LABEL, "quiz", args.quiz_seconds, True),
+            Stage("Focused arithmetic", FOCUSED_LABEL, "math", args.math_seconds, True),
+            Stage("Relaxed scenery", RELAXED_LABEL, "relax", args.relax_seconds, True),
             Stage("Finished", None, "finished", 0, False),
         ]
         self.root.title("NeuroFocus EEG Training Collector")
@@ -228,7 +230,7 @@ class TrainingInterface:
         getattr(self, f"show_{stage.kind}")()
 
     def show_instruction(self):
-        text = f"OpenBCI UDP port: {self.args.recv_port}\nRaw: {self.raw_output_path}\nFeatures: {self.features_output_path}\nFeature bands: {', '.join(self.feature_bands)}\n\nThe reading is intentionally long. Keep reading until time ends; questions follow."
+        text = f"OpenBCI UDP port: {self.args.recv_port}\nRaw: {self.raw_output_path}\nFeatures: {self.features_output_path}\nFeature bands: {', '.join(self.feature_bands)}\nLabels: {FOCUSED_LABEL}, {RELAXED_LABEL}\n\nThe reading is intentionally long. Keep reading until time ends; questions follow."
         ttk.Label(self.content, text=text, wraplength=920, font=("Arial", 16)).pack(anchor="nw")
 
     def show_reading(self):
