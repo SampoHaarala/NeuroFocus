@@ -5,15 +5,15 @@
 }
 
 :root {
-    /* CSS Theme Variables - Dynamic based on app state */
-    --accent-color: #4A4A4A;
-    --accent-color-light: rgba(74, 74, 74, 0.2);
-    --accent-glow: rgba(74, 74, 74, 0.4);
-    --state-label: "IDLE";
+    /* 默认加载时使用 RELAX 状态的颜色，防止出现灰色 */
+    --accent-color: #22C55E;
+    --accent-color-light: rgba(34, 197, 94, 0.2);
+    --accent-glow: rgba(34, 197, 94, 0.4);
+    --state-label: "RELAX";
     transition: --accent-color 0.5s ease, --accent-color-light 0.5s ease, --accent-glow 0.5s ease;
 }
 
-/* FOCUS State */
+/* FOCUS State (紫色) */
 :root.state-focus {
     --accent-color: #a855f7;
     --accent-color-light: rgba(168, 85, 247, 0.2);
@@ -21,7 +21,7 @@
     --state-label: "FOCUS";
 }
 
-/* RELAX State */
+/* RELAX State (绿色) */
 :root.state-relax {
     --accent-color: #22C55E;
     --accent-color-light: rgba(34, 197, 94, 0.2);
@@ -29,13 +29,7 @@
     --state-label: "RELAX";
 }
 
-/* IDLE State (default) */
-:root.state-idle {
-    --accent-color: #4A4A4A;
-    --accent-color-light: rgba(74, 74, 74, 0.2);
-    --accent-glow: rgba(74, 74, 74, 0.4);
-    --state-label: "IDLE";
-}
+
 
 body {
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
@@ -268,7 +262,19 @@ body {
 .band-btn:hover { color: #a855f7; border-color: #a855f7; }
 .band-btn.active { background: rgba(168, 85, 247, 0.15); color: #a855f7; border-color: #a855f7; }
 
-.ai-analysis-panel { margin-top: 30px; padding: 20px; background: linear-gradient(to right, rgba(168, 85, 247, 0.05), rgba(10, 10, 20, 0)); border-left: 3px solid #a855f7; border-radius: 4px; animation: slideDown 0.4s ease-out; }
+.ai-analysis-panel {
+    /* 确保面板能随内容伸缩，不要写死 height */
+    min-height: 100px; 
+    max-height: 600px; /* 如果太长了，允许内部滚动 */
+    overflow-y: auto;  /* 开启垂直滚动条 */
+    padding: 20px;
+    /* 其他样式... */
+}
+
+.ai-analysis-content {
+    height: auto;
+    overflow: visible;
+}
 .ai-analysis-header { font-size: 14px; font-weight: 600; color: #a855f7; margin-bottom: 12px; }
 .ai-analysis-content p { font-size: 13px; color: #ccc; line-height: 1.6; margin-bottom: 10px; }
 

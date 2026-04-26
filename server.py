@@ -5,7 +5,6 @@ import threading
 import uvicorn
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
 from pythonosc import dispatcher, osc_server
 
 # ==========================================
@@ -15,13 +14,12 @@ app = FastAPI()
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"], # 允许所有来源请求
+    allow_origins=["*"], 
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# 全局存放实时更新的脑波数据
 current_data = {
     "relaxed": 0.0,
     "attention": 0.0,
@@ -29,7 +27,7 @@ current_data = {
 }
 
 # ==========================================
-# 2. OSC 接收器逻辑 (处理同学发来的数据)
+# 2. OSC 接收器逻辑 (处理脑电设备端发来的数据)
 # ==========================================
 def relaxed_handler(address, value):
     current_data["relaxed"] = value
@@ -51,28 +49,11 @@ def start_osc_server():
     server.serve_forever()
 
 # ==========================================
-# 3. HTTP 接口逻辑 (提供给前端的 /classify 和 /health)
+# 3. HTTP 接口逻辑 (仅作状态诊断用)
 # ==========================================
 @app.get("/health")
 def health_check():
-    return {"status": "ok", "message": "Backend is running smoothly!"}
-
-# 定义前端传过来的数据格式
-class BrainData(BaseModel):
-    theta: float
-    alpha: float
-    beta: float
-
-@app.post("/classify")
-def classify_data(data: BrainData):
-    # 这里是你的 AI 分类逻辑，我先写一个简单的阈值判断作为占位
-    # 根据 alpha (放松) 和 beta (专注) 的大小对比来返回状态
-    if data.beta > data.alpha and data.beta > 0.5:
-        return {"state": "focus"}
-    elif data.alpha > data.beta and data.alpha > 0.5:
-        return {"state": "relax"}
-    else:
-        return {"state": "idle"}
+    return {"status": "ok", "message": "Backend is pure and running fast!"}
 
 # ==========================================
 # 4. WebSocket 服务器逻辑 (8080 端口实时推送)
@@ -92,19 +73,14 @@ async def start_websocket_server():
         await asyncio.Future()
 
 # ==========================================
-# 5. 启动统筹 (当 FastAPI 启动时，顺便启动 OSC 和 WebSocket)
+# 5. 启动统筹
 # ==========================================
 @app.on_event("startup")
 async def startup_event():
-    # 在后台线程启动 OSC (不会阻塞主程序)
     osc_thread = threading.Thread(target=start_osc_server, daemon=True)
     osc_thread.start()
-    
-    # 在 asyncio 事件循环中启动 WebSocket 服务器
     asyncio.create_task(start_websocket_server())
 
-# 程序入口
 if __name__ == "__main__":
     print("🌟 正在启动服务器...")
-    # 启动 8000 端口的 FastAPI 服务器
     uvicorn.run("server:app", host="127.0.0.1", port=8000, reload=False)

@@ -62,7 +62,7 @@
                 <div class="header-right">
                     <div class="status-block">
                         <div class="header-label">LOCAL TIME</div>
-                        <div class="time" id="current-time">17:04:28</div>
+                        <div class="time" id="current-time">00:00:00</div>
                     </div>
                     
                     <div class="status-block">
@@ -96,7 +96,7 @@
                     <div class="circle-inner">
                         <div class="focus-label">CURRENT FOCUS</div>
                         <div class="focus-number">
-                            <span class="focus-value">96</span><span class="focus-percent">%</span>
+                            <span class="focus-value">0</span><span class="focus-percent">%</span>
                         </div>
                         <div class="circle-divider"></div>
                         <div class="app-state" id="app-state">STATE · IDLE</div>
@@ -114,27 +114,27 @@
                 <div class="metrics-grid">
                     <div class="metric">
                         <div class="metric-label">Session</div>
-                        <div class="metric-value">1.2h</div>
+                        <div class="metric-value" id="metric-session">0.0</div>
                         <div class="metric-unit">min</div>
-                        <div class="metric-change up">△ +3:12</div>
+                        <div class="metric-change up" id="metric-session-change"></div>
                     </div>
                     <div class="metric">
                         <div class="metric-label">Peak Focus</div>
-                        <div class="metric-value">94</div>
+                        <div class="metric-value" id="metric-peak-focus">0</div>
                         <div class="metric-unit">%</div>
-                        <div class="metric-change up">△ +6</div>
+                        <div class="metric-change up" id="metric-peak-change"></div>
                     </div>
                     <div class="metric">
                         <div class="metric-label">Focused Duration</div>
-                        <div class="metric-value">45</div>
+                        <div class="metric-value" id="metric-focus-duration">0.0</div>
                         <div class="metric-unit">minutes</div>
-                        <div class="metric-change up">△ +0.04</div>
+                        <div class="metric-change up" id="metric-focus-change"></div>
                     </div>
                     <div class="metric">
                         <div class="metric-label">Relaxed Duration</div>
-                        <div class="metric-value">10.4</div>
+                        <div class="metric-value" id="metric-relax-duration">0.0</div>
                         <div class="metric-unit">minutes</div>
-                        <div class="metric-change">▼ -0.2</div>
+                        <div class="metric-change" id="metric-relax-change"></div>
                     </div>
                 </div>
 
@@ -161,7 +161,7 @@
                         </div>
                         <div class="stream-stat">
                             <div class="stream-stat-label">Amp</div>
-                            <div class="stream-stat-value" id="stat-amp">34<span class="unit">µV</span></div>
+                            <div class="stream-stat-value" id="stat-amp">0<span class="unit">µV</span></div>
                         </div>
                         <div>
                             <div class="live-badge">
@@ -195,16 +195,11 @@
                 </div>
 
                 <div class="ai-analysis-panel" id="ai-analysis-panel" style="display: none;">
-                    <div class="ai-analysis-header">
-                        🤖 AI Coach Insights
-                    </div>
+                    <div class="ai-analysis-header">🤖 AI Coach Insights</div>
                     <div class="ai-analysis-content">
-                        <p><strong>Flow State Analysis:</strong> Brain wave coherence is stable. Your Alpha waves have been dominant for the past 12 minutes, indicating that you are in a deeply focused and relaxed flow state.</p>
-                        <p><strong>Recommendation:</strong> Based on the subtle fluctuations in your Theta wave activity, it is predicted that you may experience fatigue in 15 minutes. A 5-minute micro-break is recommended at that time.</p>
-                    </div>
+                        </div>
                 </div>
-                
-                </div>
+            </div>
 
             <div class="bottom-nav">
                 <div class="nav-tab active" data-tab="home">
@@ -226,7 +221,6 @@
             </div>
         </div>
     </div>
-
     <script src="script.js"></script>
 </body>
 </html>
