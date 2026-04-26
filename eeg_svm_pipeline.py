@@ -20,15 +20,28 @@ RATIO_FEATURES = ["beta_alpha_ratio", "beta_theta_ratio", "theta_alpha_ratio"]
 MODEL_FEATURES = BASE_FEATURES + RATIO_FEATURES
 EPSILON = 1e-9
 SPLIT_NAMES = ["training", "testing", "validation"]
+FOCUSED_LABEL = "focused"
+RELAXED_LABEL = "relaxed"
+
+# New data should use only the canonical labels above.
+# Older task-specific labels are accepted only so existing CSVs remain usable.
+FOCUSED_ALIASES = {"1", "true", FOCUSED_LABEL, "focused_reading", "focused_math", "reading", "math"}
+RELAXED_ALIASES = {"0", "false", RELAXED_LABEL, "unfocused", "not_focused", "relax", "rest"}
+
+
+def normalize_label_text(value):
+    text = str(value).strip().lower()
+    if text in FOCUSED_ALIASES:
+        return FOCUSED_LABEL
+    if text in RELAXED_ALIASES:
+        return RELAXED_LABEL
+    raise ValueError(
+        f"Unknown label: {value}. Use canonical labels '{FOCUSED_LABEL}' or '{RELAXED_LABEL}'."
+    )
 
 
 def encode_label(value):
-    text = str(value).strip().lower()
-    if text in {"1", "true", "focused", "focused_reading", "focused_math", "reading", "math"}:
-        return 1
-    if text in {"0", "false", "relaxed", "unfocused", "not_focused", "relax", "rest"}:
-        return 0
-    raise ValueError(f"Unknown label: {value}")
+    return 1 if normalize_label_text(value) == FOCUSED_LABEL else 0
 
 
 def add_ratio_features(df):
@@ -95,7 +108,7 @@ def load_dataset_folder(dataset_dir, label_column="label"):
 
 def print_label_distribution(name, y):
     counts = pd.Series(y).value_counts().sort_index()
-    readable = {"unfocused/relaxed(0)": int(counts.get(0, 0)), "focused(1)": int(counts.get(1, 0))}
+    readable = {f"{RELAXED_LABEL}(0)": int(counts.get(0, 0)), f"{FOCUSED_LABEL}(1)": int(counts.get(1, 0))}
     print(f"{name} label distribution: {readable}")
 
 
@@ -104,7 +117,7 @@ def require_two_classes(y, split_name):
     if len(unique) != 2:
         raise ValueError(
             f"{split_name} split has only {len(unique)} class(es): {sorted(unique)}. "
-            "Each split should contain both focused and relaxed/unfocused samples."
+            f"Each split should contain both labels: {FOCUSED_LABEL} and {RELAXED_LABEL}."
         )
 
 
@@ -192,7 +205,7 @@ def load_model(path):
 
 def predict_focus(model, X, threshold=0.5, label_map=None):
     if label_map is None:
-        label_map = {1: "focused", 0: "unfocused"}
+        label_map = {1: FOCUSED_LABEL, 0: RELAXED_LABEL}
 
     X = add_ratio_features(X)
     X_prepared = prepare_features(X[MODEL_FEATURES], z_thresh=3.5, smooth_window=3, fill_method="median")
