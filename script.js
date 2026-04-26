@@ -158,19 +158,23 @@ function drawRealtimeWave() {
     
     if (!svg || !wavePath || !waveStroke) return;
 
-    // 【修复核心1】动态获取 SVG 当前实际渲染的像素宽和高
-    const rect = svg.getBoundingClientRect();
-    const width = rect.width > 0 ? rect.width : 1000;
-    const height = rect.height > 0 ? rect.height : 100;
+    // 获取实际物理像素尺寸
+    const width = svg.clientWidth > 0 ? svg.clientWidth : 1000;
+    const height = svg.clientHeight > 0 ? svg.clientHeight : 100;
 
-    // 【修复核心2】动态更新 viewBox，将内部坐标系与物理尺寸 1:1 映射，消除左右留白
+    // 映射坐标系
     svg.setAttribute('viewBox', `0 0 ${width} ${height}`);
+    svg.setAttribute('preserveAspectRatio', 'none');
 
     const currentData = bandConfig[currentActiveBand].data;
     
+    // 【修改核心】：向左退回 8px (3px半径 + 4px阴影 + 1px缓冲)，防止小白点被右侧切边
+    const paddingRight = 8; 
+    const drawWidth = width - paddingRight;
+
     if (currentData.length === 0) {
-        wavePath.setAttribute('d', `M 0 ${height} L ${width} ${height} Z`);
-        waveStroke.setAttribute('points', `0,${height} ${width},${height}`);
+        wavePath.setAttribute('d', `M 0 ${height} L ${drawWidth} ${height} Z`);
+        waveStroke.setAttribute('points', `0,${height} ${drawWidth},${height}`);
         if(waveDot) waveDot.setAttribute('opacity', '0');
         return;
     }
@@ -178,29 +182,34 @@ function drawRealtimeWave() {
     let points = [];
     let pathData = '';
 
-    // 【修复核心3】利用真实的动态屏幕宽度来计算每一个数据点的 X 轴步长
-    const stepX = width / (MAX_DATA_POINTS - 1);
+    // 数轴上下限
+    const Y_MAX = 2; 
+    const Y_MIN = 0;
+
+    // 【修改核心】：步长计算现在基于扣除右侧边距后的 drawWidth
+    const stepX = drawWidth / (MAX_DATA_POINTS - 1);
 
     for (let i = 0; i < currentData.length; i++) {
-        const x = width - ((currentData.length - 1 - i) * stepX);
+        // 【修改核心】：X坐标的基础偏移量从 width 改为 drawWidth
+        const x = drawWidth - ((currentData.length - 1 - i) * stepX);
         
         let val = currentData[i];
-        if (val > MAX_AMP_VALUE) val = MAX_AMP_VALUE;
-        if (val < 0) val = 0;
+        if (val > Y_MAX) val = Y_MAX;
+        if (val < Y_MIN) val = Y_MIN;
         
-        // 【修复核心4】利用真实的动态高度来映射 Y 坐标
-        const y = height - (val / MAX_AMP_VALUE) * height;
+        const y = height - ((val - Y_MIN) / (Y_MAX - Y_MIN)) * height;
 
-        points.push(`${x},${y}`);
+        points.push(`${x.toFixed(1)},${y.toFixed(1)}`);
         
         if (i === 0) {
-            pathData = `M ${x} ${y}`;
+            pathData = `M ${x.toFixed(1)} ${y.toFixed(1)}`;
         } else {
-            pathData += ` L ${x} ${y}`;
+            pathData += ` L ${x.toFixed(1)} ${y.toFixed(1)}`;
         }
     }
 
-    pathData += ` L ${width} ${height} L ${width - ((currentData.length - 1) * stepX)} ${height} Z`;
+    // 闭合路径，底部边界也对齐到 drawWidth
+    pathData += ` L ${drawWidth} ${height} L ${(drawWidth - ((currentData.length - 1) * stepX)).toFixed(1)} ${height} Z`;
 
     wavePath.setAttribute('d', pathData);
     waveStroke.setAttribute('points', points.join(' '));
@@ -208,20 +217,23 @@ function drawRealtimeWave() {
     if (waveDot && currentData.length > 0) {
         waveDot.setAttribute('opacity', '1');
         let latestVal = currentData[currentData.length - 1];
-        if (latestVal > MAX_AMP_VALUE) latestVal = MAX_AMP_VALUE;
-        if (latestVal < 0) latestVal = 0;
         
-        const latestX = width; 
-        const latestY = height - (latestVal / MAX_AMP_VALUE) * height;
+        if (latestVal > Y_MAX) latestVal = Y_MAX;
+        if (latestVal < Y_MIN) latestVal = Y_MIN;
+        
+        // 【修改核心】：圆心的X坐标固定在 drawWidth，完美避开右侧被裁的命运
+        const latestX = drawWidth; 
+        const latestY = height - ((latestVal - Y_MIN) / (Y_MAX - Y_MIN)) * height;
 
-        waveDot.setAttribute('cx', latestX);
-        waveDot.setAttribute('cy', latestY);
+        waveDot.setAttribute('cx', latestX.toFixed(1));
+        waveDot.setAttribute('cy', latestY.toFixed(1));
     }
 }
 
 drawRealtimeWave();
 
-// 【修复核心5】增加窗口缩放监听，保证用户在调整浏览器窗口大小时，波形立刻自适应填满
+
+// 增加窗口缩放监听，保证用户在调整浏览器窗口大小时，波形立刻自适应填满
 window.addEventListener('resize', drawRealtimeWave);
 
 // --- 3. WebSocket 实时数据接收 ---
@@ -349,7 +361,7 @@ if(btnAiAnalysis && aiAnalysisPanel) {
     });
 }
 
-// --- 5. 动态更新进度环 (Circle Progress Ring) ---
+// --- 8. 动态更新进度环 (Circle Progress Ring) ---
 const CIRCLE_CIRCUMFERENCE = 2 * Math.PI * 155; // r=155
 
 function updateProgressRing() {
@@ -374,3 +386,160 @@ if (focusValueElement) {
     const observer = new MutationObserver(updateProgressRing);
     observer.observe(focusValueElement, { childList: true, characterData: true, subtree: true });
 }
+
+
+// --- 9. AI Analysis API 交互逻辑 ---
+document.addEventListener('DOMContentLoaded', () => {
+    const aiAnalysisBtn = document.getElementById('btn-ai-analysis');
+    const aiPanel = document.getElementById('ai-analysis-panel');
+    const aiContent = aiPanel.querySelector('.ai-analysis-content');
+
+    // 替换为你的真实 Gemini API Key
+    const GEMINI_API_KEY = 'AIzaSyBbveMsXU2aMVsyn23qoyvAXLznnydN8R4'; 
+
+    aiAnalysisBtn.addEventListener('click', async () => {
+        
+        // 1. 获取当前实时的脑波数据（核心修复部分）
+        let brainwaveData = "Here is the current real-time brainwave data from the user:\n";
+        
+        // 遍历目前配置里的每一项波形，获取最新的数据点
+        for (const bandName in bandConfig) {
+            const dataArray = bandConfig[bandName].data;
+            let currentAmp = 0;
+            
+            // 如果数组里有数据，就取最后一个（最新接收到的）
+            if (dataArray.length > 0) {
+                currentAmp = dataArray[dataArray.length - 1].toFixed(3);
+            }
+            
+            brainwaveData += `- ${bandName}: Amplitude ${currentAmp}µV\n`;
+        }
+
+        // 2. 显示面板并设置加载动画
+        aiPanel.style.display = 'block';
+        aiContent.innerHTML = `
+            <div style="display: flex; align-items: center; gap: 10px; color: #a855f7;">
+                <div class="live-dot"></div>
+                <p>Synthesizing real-time neural data...</p>
+            </div>`;
+
+        // 3. 构建发送给 Gemini 的 Prompt
+        const prompt = `
+        You are a professional AI Coach for a Neuro-Focus BCI dashboard. 
+        Analyze the following real-time brainwave data and provide concise insights.
+        
+        ${brainwaveData}
+        
+        Please format your response EXACTLY in this HTML structure, keeping it brief and professional:
+        <p><strong>Flow State Analysis:</strong> [Your analysis here based on the data]</p>
+        <p><strong>Recommendation:</strong> [Your actionable recommendation here]</p>
+        `;
+
+        // 4. 调用 Gemini API
+        try {
+            const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GEMINI_API_KEY}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    contents: [{
+                        parts: [{ text: prompt }]
+                    }],
+                    generationConfig: {
+                        temperature: 0.7, 
+                        maxOutputTokens: 200
+                    }
+                })
+            });
+
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+
+            const data = await response.json();
+            
+            // 提取大模型返回的文本内容
+            const aiResponseText = data.candidates[0].content.parts[0].text;
+
+            // 5. 将结果渲染到面板中
+            aiContent.innerHTML = aiResponseText;
+
+        } catch (error) {
+            console.error("Error fetching AI analysis:", error);
+            aiContent.innerHTML = `<p style="color: #ef4444;"><strong>Connection Error:</strong> Unable to reach the AI Coach. Please check your network or API key.</p>`;
+        }
+    });
+});
+
+
+
+
+
+// ============================================
+// 10. 本地 AI 分类器集成 (Focus/Relax 状态判断)
+// ============================================
+
+// 获取各个波形的最新数值的辅助函数
+function getLatestBandValue(bandName) {
+    const dataArray = bandConfig[bandName].data;
+    if (dataArray && dataArray.length > 0) {
+        return dataArray[dataArray.length - 1]; // 返回最新收到的那个点
+    }
+    return 0.0;
+}
+
+// 请求本地后端并更新 UI 状态的函数
+async function classifyCurrentState() {
+    // 1. 组装给后端的数据
+    // 注意：你前端叫 Attention/Relaxed，但后端接口要求传入 theta, alpha, beta
+    // 这里需要做一个映射 (你可以根据实际科学模型调整对应关系)
+    const currentData = {
+        "theta": getLatestBandValue("Engagement"),              // 暂时代替 theta
+        "alpha": getLatestBandValue("Relaxed & Focused Level"), // 暂时代替 alpha
+        "beta":  getLatestBandValue("Attention")                // 暂时代替 beta
+    };
+
+    // 如果还没有收到任何数据，先不发请求
+    if (currentData.theta === 0 && currentData.alpha === 0 && currentData.beta === 0) {
+        return; 
+    }
+
+    try {
+        // 2. 发送 POST 请求到你的 Python 本地接口
+        const response = await fetch('http://127.0.0.1:8000/classify', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(currentData)
+        });
+
+        if (!response.ok) throw new Error("网络响应不正常");
+
+        const result = await response.json();
+        
+        // 3. 解析后端返回的结果并改变 UI 颜色
+        // 假设后端返回格式为: { "status": "focus" } 或 { "state": "relax" }
+        // 注意：请将 `result.state` 替换为你后端实际返回的字段名！
+        const predictedState = result.state || result.status || result.label; 
+        
+        // 根据 AI 判断的结果，切换你写好的 StateManager
+        if (predictedState === 'focus' || predictedState === 'focused') {
+            StateManager.setState(AppState.FOCUS); // 圆环变紫
+        } 
+        else if (predictedState === 'relax' || predictedState === 'relaxed') {
+            StateManager.setState(AppState.RELAX); // 圆环变绿
+        } 
+        else {
+            StateManager.setState(AppState.IDLE);  // 圆环变灰
+        }
+
+    } catch (error) {
+        // console.error("本地分类接口请求失败 (可能后端没开或跨域):", error);
+        // 静默失败，不打断前端渲染
+    }
+}
+
+// 4. 设置定时器，每 2 秒钟请求一次 AI 分类接口 (不要太快，以免卡顿)
+setInterval(classifyCurrentState, 2000);
