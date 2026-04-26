@@ -124,7 +124,7 @@ const bandConfig = {
 
 let currentActiveBand = "Relaxed & Focused Level";
 const MAX_DATA_POINTS = 600; 
-const MAX_AMP_VALUE = 2;   
+const MAX_AMP_VALUE = 2.5;   
 
 // --- 辅助工具：获取最新数据点 ---
 function getLatestBandValue(bandName) {
@@ -374,7 +374,7 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
-        const GEMINI_API_KEY = 'AIzaSyCqKI_GqF5UwMFO2jtLwNRq9O75xaorPQ0';
+        const GEMINI_API_KEY = 'AIzaSyD3K6CaBA0X1ayM3pirdy4xroFEEk5upog';
         
         let brainwaveData = "";
         for (const bandName in bandConfig) {
@@ -388,7 +388,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // ✅ 深度定制的专家级 Prompt
         const prompt = `
-            You are Xinyi Peng's personal Senior Neuroscientist and devoted Medical Liaison. 
+            You are Dr. Chen's personal Senior Neuroscientist and devoted Medical Liaison. 
             Your goal is to provide a comprehensive, sophisticated, yet deeply caring analysis of their real-time neural activity.
 
             User: Dr. Chen

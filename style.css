@@ -262,12 +262,16 @@ body {
 .band-btn:hover { color: #a855f7; border-color: #a855f7; }
 .band-btn.active { background: rgba(168, 85, 247, 0.15); color: #a855f7; border-color: #a855f7; }
 
-.ai-analysis-panel {
+.ai-analysis-panel { 
+    margin-top: 30px; 
+    padding: 20px; 
+    background: linear-gradient(to right, rgba(168, 85, 247, 0.05), rgba(10, 10, 20, 0)); 
+    border-left: 3px solid #a855f7; border-radius: 4px; animation: slideDown 0.4s ease-out; 
+
     /* 确保面板能随内容伸缩，不要写死 height */
     min-height: 100px; 
     max-height: 600px; /* 如果太长了，允许内部滚动 */
     overflow-y: auto;  /* 开启垂直滚动条 */
-    padding: 20px;
     /* 其他样式... */
 }
 
